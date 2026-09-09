@@ -1,6 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ANALYST_PERSONAS, SEED_FINDINGS, SEED_BRIEFING } from "@/lib/seed-data";
 import type { AnalystId, AnalystFinding, Briefing, WatchlistItem } from "@/lib/types";
+
+// ─── LLM configuration ────────────────────────────────────────────
+// Primary: Qwen 3.6 Plus via Bitget hackathon proxy (sponsor LLM)
+// Fallback: seed data when no API key or API fails
+
+const QWEN_API_URL = "https://hackathon.bitgetops.com/v1/chat/completions";
+const QWEN_MODEL = "qwen3.6-plus";
+
+function hasQwenKey(): boolean {
+  return !!(process.env.BITGET_QWEN_API_KEY || process.env.DASHSCOPE_API_KEY);
+}
+
+function getQwenKey(): string {
+  return process.env.BITGET_QWEN_API_KEY || process.env.DASHSCOPE_API_KEY || "";
+}
+
+export function hasLLMKey(): boolean {
+  return hasQwenKey();
+}
 
 // ─── Prompt sanitization ──────────────────────────────────────────
 // Mitigate prompt injection — adapted from Agentropolis's pattern.
@@ -22,20 +40,67 @@ function sanitizePrompt(prompt: string): string {
   return cleaned;
 }
 
-// ─── Gemini client (lazy init) ─────────────────────────────────────
+// ─── Qwen API call (OpenAI-compatible) ─────────────────────────────
 
-let genAI: GoogleGenerativeAI | null = null;
-
-function getGenAI(): GoogleGenerativeAI | null {
-  if (genAI) return genAI;
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
-  genAI = new GoogleGenerativeAI(key);
-  return genAI;
+interface QwenMessage {
+  role: "system" | "user";
+  content: string;
 }
 
-export function hasGeminiKey(): boolean {
-  return !!process.env.GEMINI_API_KEY;
+interface QwenResponse {
+  choices: { message: { content: string } }[];
+  error?: { message: string; code: string };
+}
+
+async function callQwen(messages: QwenMessage[], maxRetries = 2): Promise<string> {
+  const apiKey = getQwenKey();
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(QWEN_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: QWEN_MODEL,
+          messages,
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Qwen API ${response.status}: ${errorText.substring(0, 200)}`);
+      }
+
+      const data = (await response.json()) as QwenResponse;
+      if (data.error) {
+        throw new Error(`Qwen API error: ${data.error.message}`);
+      }
+
+      if (!data.choices || data.choices.length === 0) {
+        throw new Error("Qwen API returned no choices");
+      }
+
+      return data.choices[0].message.content;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      // Retry on transient errors (429, 503, network)
+      if (attempt < maxRetries && (msg.includes("429") || msg.includes("503") || msg.includes("502") || msg.includes("Service Unavailable") || msg.includes("Too Many Requests"))) {
+        console.warn(`[Qwen] attempt ${attempt + 1} failed (${msg.substring(0, 80)}), retrying in ${1000 * (attempt + 1)}ms...`);
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Qwen API failed after retries");
 }
 
 // ─── Single analyst call ───────────────────────────────────────────
@@ -44,7 +109,7 @@ function buildAnalystPrompt(
   personaId: AnalystId,
   userPrompt: string,
   watchlist: WatchlistItem[],
-): string {
+): QwenMessage[] {
   const persona = ANALYST_PERSONAS.find((p) => p.id === personaId)!;
   const watchlistStr = watchlist
     .map(
@@ -53,9 +118,11 @@ function buildAnalystPrompt(
     )
     .join("\n");
 
-  return `${persona.systemPrompt}
-
-User's question: "${sanitizePrompt(userPrompt)}"
+  return [
+    { role: "system", content: persona.systemPrompt },
+    {
+      role: "user",
+      content: `User's question: "${sanitizePrompt(userPrompt)}"
 
 User's watchlist (overnight snapshot):
 ${watchlistStr}
@@ -71,7 +138,9 @@ Respond with valid JSON only (no markdown, no code blocks):
   "signals": [
     {"label": "Signal name", "value": "value", "direction": "bullish|bearish|neutral"}
   ]
-}`;
+}`,
+    },
+  ];
 }
 
 interface AnalystResponse {
@@ -89,8 +158,8 @@ export async function runAnalyst(
 ): Promise<AnalystFinding> {
   const persona = ANALYST_PERSONAS.find((p) => p.id === personaId)!;
 
-  // Fallback to seed data if no Gemini key
-  if (!hasGeminiKey()) {
+  // Fallback to seed data if no Qwen key
+  if (!hasQwenKey()) {
     const seed = SEED_FINDINGS[personaId];
     return {
       analystId: personaId,
@@ -105,17 +174,11 @@ export async function runAnalyst(
     };
   }
 
-  const ai = getGenAI()!;
-  const model = ai.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" } });
-
-  const prompt = buildAnalystPrompt(personaId, userPrompt, watchlist);
-
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const messages = buildAnalystPrompt(personaId, userPrompt, watchlist);
+    const text = await callQwen(messages);
     const parsed = JSON.parse(text) as AnalystResponse;
 
-    // Validate and clamp
     const confidence = Math.max(0, Math.min(100, parsed.confidence || 50));
     const signals = (parsed.signals || []).slice(0, 6).map((s) => ({
       label: String(s.label || ""),
@@ -155,11 +218,11 @@ export async function runAnalyst(
 
 // ─── Synthesizer ───────────────────────────────────────────────────
 
-function buildSynthesisPrompt(
+function buildSynthesisMessages(
   userPrompt: string,
   watchlist: WatchlistItem[],
   findings: AnalystFinding[],
-): string {
+): QwenMessage[] {
   const watchlistStr = watchlist
     .map((w) => `${w.symbol} (${w.name}): ${w.overnightChangePct > 0 ? "+" : ""}${w.overnightChangePct.toFixed(1)}%`)
     .join(", ");
@@ -168,9 +231,14 @@ function buildSynthesisPrompt(
     .map((f) => `${f.emoji} ${f.analystName} (${f.confidence}% confident): ${f.summary}`)
     .join("\n");
 
-  return `You are the Briefing Synthesizer. Five specialist analysts have analyzed overnight tokenized US-stock market activity. Your job is to synthesize their findings into a concise, actionable morning briefing.
-
-User's question: "${sanitizePrompt(userPrompt)}"
+  return [
+    {
+      role: "system",
+      content: `You are the Briefing Synthesizer. Five specialist analysts have analyzed overnight tokenized US-stock market activity. Your job is to synthesize their findings into a concise, actionable morning briefing.`,
+    },
+    {
+      role: "user",
+      content: `User's question: "${sanitizePrompt(userPrompt)}"
 
 Watchlist: ${watchlistStr}
 
@@ -198,7 +266,9 @@ Rules:
 - analystIds must be from: macro, market-intel, news, sentiment, technical
 - Only include analysts that actually flagged the signal
 - Be honest about uncertainty — if analysts disagree, say so
-- Never recommend executing a trade — only "consider", "watch", "monitor", "hold"`;
+- Never recommend executing a trade — only "consider", "watch", "monitor", "hold"`,
+    },
+  ];
 }
 
 interface SynthesisResponse {
@@ -219,8 +289,8 @@ export async function synthesizeBriefing(
   watchlist: WatchlistItem[],
   findings: AnalystFinding[],
 ): Promise<Briefing> {
-  // Fallback to seed briefing if no Gemini key
-  if (!hasGeminiKey()) {
+  // Fallback to seed briefing if no Qwen key
+  if (!hasQwenKey()) {
     return {
       ...SEED_BRIEFING,
       generatedAt: new Date().toISOString(),
@@ -228,13 +298,9 @@ export async function synthesizeBriefing(
     };
   }
 
-  const ai = getGenAI()!;
-  const model = ai.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { responseMimeType: "application/json" } });
-
   try {
-    const prompt = buildSynthesisPrompt(userPrompt, watchlist, findings);
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const messages = buildSynthesisMessages(userPrompt, watchlist, findings);
+    const text = await callQwen(messages);
     const parsed = JSON.parse(text) as SynthesisResponse;
 
     const validIds: AnalystId[] = ["macro", "market-intel", "news", "sentiment", "technical"];
@@ -262,7 +328,6 @@ export async function synthesizeBriefing(
     };
   } catch (err) {
     console.error("[Synthesizer] error:", err);
-    // Fallback to seed briefing
     return {
       ...SEED_BRIEFING,
       generatedAt: new Date().toISOString(),

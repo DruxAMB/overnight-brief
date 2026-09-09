@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ANALYST_PERSONAS } from "@/lib/seed-data";
 import { runAnalyst, synthesizeBriefing } from "@/lib/analysts";
+import { fetchWatchlist } from "@/lib/bitget-market";
 import type { BriefingStreamEvent, WatchlistItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -9,7 +10,6 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const prompt: string = String(body.prompt || "What happened while I slept?");
-  const watchlist: WatchlistItem[] = body.watchlist || [];
 
   const encoder = new TextEncoder();
 
@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
       };
 
       try {
+        // Fetch real market data from Bitget before running analysts.
+        // Falls back to seed data if the API is unreachable.
+        const { items: watchlist, isLive } = await fetchWatchlist();
+
+        // Signal data source to the client
+        send({ type: "market-data", isLive } as BriefingStreamEvent & { type: "market-data"; isLive: boolean });
+
         // Run analysts sequentially — each panel lights up one by one.
         // This is the money shot: watching 5 panels activate in sequence.
         const findings = [];

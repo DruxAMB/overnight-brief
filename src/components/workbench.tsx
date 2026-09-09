@@ -294,6 +294,7 @@ export function Workbench() {
   const [expandedAnalyst, setExpandedAnalyst] = useState<AnalystId | null>(null);
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dataIsLive, setDataIsLive] = useState<boolean | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const runBriefing = useCallback(async (promptText: string) => {
@@ -303,6 +304,7 @@ export function Workbench() {
     setRunState("running");
     setError(null);
     setBriefing(null);
+    setDataIsLive(null);
     setAnalystStatuses(
       Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, "idle"])) as Record<AnalystId, AnalystStatus>,
     );
@@ -317,7 +319,7 @@ export function Workbench() {
       const res = await fetch("/api/briefing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptText, watchlist: SEED_WATCHLIST }),
+        body: JSON.stringify({ prompt: promptText }),
         signal: controller.signal,
       });
 
@@ -370,6 +372,9 @@ export function Workbench() {
 
   function handleStreamEvent(event: BriefingStreamEvent) {
     switch (event.type) {
+      case "market-data":
+        setDataIsLive(event.isLive);
+        break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
         break;
@@ -545,8 +550,11 @@ export function Workbench() {
 
       {/* Simulated data disclosure */}
       <p className="text-xs text-muted-foreground text-center">
-        Overnight market data is a curated snapshot for demo reliability. Live data integration via
-        Bitget Agent SDK is wired in the API layer.
+        {dataIsLive === null
+          ? "Market data loads when you generate a briefing."
+          : dataIsLive
+            ? "Live market data from Bitget. Analysis by Qwen 3.6 Plus."
+            : "Bitget API unreachable — using curated seed data for demo reliability."}
       </p>
     </div>
   );
