@@ -21,7 +21,7 @@ Tokenized US stocks trade around the clock, but humans sleep. Overnight moves, m
 
 | Step | Action | What happens |
 |---|---|---|
-| 1 | Open the URL | Workbench loads with a seeded watchlist (rNVDA, rTSLA, rAAPL, rCOIN, rMSTR), a pre-filled prompt, and five idle analyst panels |
+| 1 | Open the URL | Workbench loads with a watchlist (rNVDA, rTSLA, rAAPL, rCOIN, rMSTR), a pre-filled prompt, and five idle analyst panels |
 | 2 | Click "Generate Briefing" | Five analyst panels light up sequentially — Macro Oracle, Market Intel, News Briefing, Sentiment Analyst, Technical Analysis — each streaming its findings |
 | 3 | Wait ~5 seconds | A synthesized briefing assembles at the top: executive summary, market regime badge, three ranked action items |
 | 4 | Click an action item | Expands to show which analysts flagged it, their confidence scores, and the rationale |
@@ -73,8 +73,8 @@ The hard part: this isn't one LLM call. It's five independent analyst calls, eac
 | Language | TypeScript | Type safety across the RSC boundary |
 | Styling | Tailwind CSS 4 | Semantic token system, no hardcoded values |
 | Icons | lucide-react | One icon library, consistent sizing |
-| LLM | Google Gemini 2.0 Flash | Fast, structured JSON output, free tier |
-| Market data | Bitget Agent SDK (`@bitget-ai/bitget-agent-sdk`) | Public market data, no API key required |
+| LLM | Qwen 3.6 Plus (via Bitget hackathon proxy) | Sponsor LLM, structured JSON output, OpenAI-compatible API |
+| Market data | Bitget Agent SDK (`@bitget-ai/bitget-agent-sdk`) | Live rToken tickers from public market endpoint, no API key required |
 | Analyst skills | Bitget `bitget-signal` (5 skills) | Macro, market-intel, news, sentiment, technical — mapped 1:1 to analyst personas |
 | Deploy | Vercel | Same-day, zero-config for Next.js |
 
@@ -82,11 +82,12 @@ The hard part: this isn't one LLM call. It's five independent analyst calls, eac
 
 | Component | Status | Notes |
 |---|---|---|
-| Multi-agent architecture | **Real** | Five distinct Gemini calls with persona prompts, sequential streaming, synthesizer merge |
-| Gemini LLM integration | **Real** | Gemini 2.0 Flash with structured JSON output and prompt sanitization |
-| Bitget Agent SDK | **Wired, fallback active** | SDK installed and importable; demo uses curated seed data for reliability so the demo path never depends on external API availability during judging |
-| Watchlist data | **Curated snapshot** | Real symbols (rNVDA, rTSLA, etc.) with realistic overnight changes. Not a live API call. |
-| Analyst findings (fallback) | **Curated** | When `GEMINI_API_KEY` is not set, the app uses pre-written findings that match the seed scenario. Labelled as "curated snapshot" in the UI. |
+| Multi-agent architecture | **Real** | Five distinct Qwen calls with persona prompts, sequential streaming, synthesizer merge |
+| Qwen LLM integration | **Real** | Qwen 3.6 Plus via Bitget hackathon proxy (`hackathon.bitgetops.com/v1`), structured JSON output, prompt sanitization, retry on transient errors |
+| Bitget Agent SDK | **Real** | Fetches live rToken tickers (rNVDA, rTSLA, rAAPL, rCOIN, rMSTR) from Bitget's public market endpoint on every briefing request |
+| Watchlist data | **Real (live)** | Real rToken prices, 24h changes, and volumes from Bitget. Falls back to curated seed snapshot if the API is unreachable. |
+| Analyst findings | **Real (LLM)** | Qwen 3.6 Plus reasons over live Bitget market data with persona-specific prompts. Falls back to curated seed findings if the LLM is unavailable. |
+| Synthesized briefing | **Real (LLM)** | A sixth Qwen call merges all five analyst findings into an executive summary and ranked action items. Falls back to seed briefing on error. |
 | Trading / order execution | **Not implemented** | This is a research desk, not a trading bot. The human makes all decisions. |
 
 ## Run it locally
@@ -96,7 +97,7 @@ git clone https://github.com/DruxAMB/overnight-brief.git
 cd overnight-brief
 npm ci
 cp .env.example .env.local
-# Optional: add GEMINI_API_KEY to .env.local for live LLM analysis
+# Optional: add BITGET_QWEN_API_KEY to .env.local for live LLM analysis
 # Without it, the app uses curated seed data
 npm run dev
 ```
@@ -107,20 +108,19 @@ Open http://localhost:3000
 
 | Variable | Required? | Where to get it | What degrades without it |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Optional | [Google AI Studio](https://aistudio.google.com/apikey) | App falls back to curated seed findings — the UI and flow are identical, but the analysis is pre-written |
+| `BITGET_QWEN_API_KEY` | Optional | [Bitget hackathon Qwen proxy](https://bitget-ai.gitbook.io/bitgetai_hackathons2) | App falls back to curated seed findings — the UI and flow are identical, but the analysis is pre-written |
 
 ## Known limitations
 
 - Watchlist is pre-seeded (5 rToken positions). No UI for adding/removing symbols.
 - No historical briefing archive — each run is ephemeral.
-- The Bitget Agent SDK market data integration is wired but uses a fallback snapshot for demo reliability. A live data mode would require the SDK's market module to be called server-side on each briefing request.
 - No price charts or sparklines in analyst panels (cut for scope).
 - No multi-language support.
 
 ## Licences
 
 - **Project code**: MIT License — see [LICENSE](LICENSE)
-- **Gemini API**: Google API terms
+- **Qwen API**: Alibaba Cloud / Bitget hackathon proxy terms
 - **Bitget Agent SDK**: MIT (per [Bitget Agent Hub](https://github.com/Bitget-AI/agent_hub))
 - **lucide-react**: ISC
 - **Next.js, React, Tailwind CSS**: MIT
