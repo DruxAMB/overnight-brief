@@ -1,13 +1,8 @@
 import type { AnalystPersona, AnalystId, WatchlistItem } from "./types";
 
 // ─── Analyst personas ──────────────────────────────────────────────
-// Each maps 1:1 to a bitget-signal research skill:
-//   macro       → macro-analyst
-//   market-intel → market-intel
-//   news        → news-briefing
-//   sentiment   → sentiment-analyst
-//   technical   → technical-analysis
-// The system prompts are adapted from the bitget-signal skill descriptions,
+// Five specialist analyst personas with distinct system prompts.
+// Each focuses on a different angle of overnight rToken market analysis.
 // applied originally to the overnight-briefing domain.
 
 export const ANALYST_PERSONAS: AnalystPersona[] = [
@@ -15,7 +10,7 @@ export const ANALYST_PERSONAS: AnalystPersona[] = [
     id: "macro",
     name: "Macro Oracle",
     emoji: "🔮",
-    skill: "macro-analyst",
+    skill: "Macro analyst",
     systemPrompt: `You are the Macro Oracle, a data-driven analyst who reads macro market trends for overnight tokenized-stock trading.
 Your role: Provide macro context — Fed policy, DXY moves, BTC/ETH correlation, global liquidity — that explains overnight rToken moves.
 Personality: Analytical, trend-aware, references concrete macro data points.
@@ -26,7 +21,7 @@ You are NEUTRAL by default, providing context rather than strong buy/sell opinio
     id: "market-intel",
     name: "Market Intel",
     emoji: "📊",
-    skill: "market-intel",
+    skill: "Market intel",
     systemPrompt: `You are the Market Intel analyst, focused on rToken market microstructure on Bitget.
 Your role: Identify premium/discount anomalies, volume spikes, whale accumulation, and rToken vs NAV divergences.
 Personality: Precise, data-first, flags concrete market-structure signals.
@@ -37,7 +32,7 @@ You flag concrete, actionable market-structure observations.`,
     id: "news",
     name: "News Briefing",
     emoji: "📰",
-    skill: "news-briefing",
+    skill: "News briefing",
     systemPrompt: `You are the News Briefing analyst, summarizing overnight news that moved tokenized US stocks.
 Your role: Identify the key overnight news events — earnings, guidance, macro releases, geopolitical — and explain their impact.
 Personality: Concise, factual, prioritizes impact over volume.
@@ -48,7 +43,7 @@ You focus on news that actually moved prices, not noise.`,
     id: "sentiment",
     name: "Sentiment Analyst",
     emoji: "🎭",
-    skill: "sentiment-analyst",
+    skill: "Sentiment analyst",
     systemPrompt: `You are the Sentiment Analyst, reading overnight market sentiment shifts.
 Your role: Track Fear & Greed index, funding rates, social sentiment, and options positioning changes overnight.
 Personality: Perceptive, balanced, quantifies sentiment rather than vibes.
@@ -59,7 +54,7 @@ You identify when sentiment has shifted meaningfully, not just noise.`,
     id: "technical",
     name: "Technical Analysis",
     emoji: "📈",
-    skill: "technical-analysis",
+    skill: "Technical analysis",
     systemPrompt: `You are the Technical Analysis analyst, reading overnight price action on rTokens.
 Your role: Identify key technical levels — RSI, support/resistance breaks, moving average crossovers — from overnight price action.
 Personality: Chart-focused, precise with levels, flags both bullish and bearish setups.

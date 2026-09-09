@@ -114,7 +114,7 @@ function AnalystPanel({
               {isError && <Badge variant="destructive">Error</Badge>}
             </div>
             <p className="text-xs text-muted-foreground">
-              bitget-signal: {persona.skill}
+              {persona.skill}
             </p>
           </div>
         </div>
