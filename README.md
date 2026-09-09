@@ -48,20 +48,14 @@ graph TD
     G --> I[Ranked Action Items]
     G --> J[Market Regime Call]
 
-    subgraph "Bitget Agent Hub"
-        K[bitget-signal skills]
-        L[bitget-agent-sdk market data]
+    subgraph "Bitget Agent SDK"
+        K[Live rToken tickers]
     end
 
-    K -.-> B
-    K -.-> C
-    K -.-> D
-    K -.-> E
-    K -.-> F
-    L -.-> A
+    K -.-> A
 ```
 
-Each analyst persona maps 1:1 to a Bitget `bitget-signal` research skill (macro-analyst, market-intel, news-briefing, sentiment-analyst, technical-analysis). The analysts run sequentially — not in parallel — so the judge can watch each panel activate, which is the money shot. A synthesizer agent then merges all five findings into a ranked briefing.
+Each analyst is a Qwen 3.6 Plus call with a distinct persona system prompt (macro, market intel, news, sentiment, technical). The analysts run sequentially — not in parallel — so the judge can watch each panel activate, which is the money shot. A synthesizer agent then merges all five findings into a ranked briefing.
 
 The hard part: this isn't one LLM call. It's five independent analyst calls, each with a distinct persona system prompt, each reasoning over the same market data from a different angle, followed by a sixth synthesis call that merges their outputs. The architecture is visible on screen — you watch each analyst work before the synthesis appears.
 
@@ -75,7 +69,7 @@ The hard part: this isn't one LLM call. It's five independent analyst calls, eac
 | Icons | lucide-react | One icon library, consistent sizing |
 | LLM | Qwen 3.6 Plus (via Bitget hackathon proxy) | Sponsor LLM, structured JSON output, OpenAI-compatible API |
 | Market data | Bitget Agent SDK (`@bitget-ai/bitget-agent-sdk`) | Live rToken tickers from public market endpoint, no API key required |
-| Analyst skills | Bitget `bitget-signal` (5 skills) | Macro, market-intel, news, sentiment, technical — mapped 1:1 to analyst personas |
+| Analyst personas | 5 custom Qwen prompts | Macro, market-intel, news, sentiment, technical — each with a distinct system prompt |
 | Deploy | Vercel | Same-day, zero-config for Next.js |
 
 ## What's real vs. mocked
