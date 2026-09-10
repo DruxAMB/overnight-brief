@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Card, Badge, Button, Skeleton } from "@/components/ui";
 import { Stack } from "@/components/layout";
+import { StockLogo } from "@/components/stock-logo";
 import { cn } from "@/lib/utils";
 import {
   ANALYST_PERSONAS,
@@ -32,15 +33,6 @@ import type {
   BriefingStreamEvent,
   WatchlistItem,
 } from "@/lib/types";
-
-// ─── Company brand colors for watchlist avatars ────────────────────
-const BRAND_COLORS: Record<string, string> = {
-  rNVDA: "#76b900",  // NVIDIA green
-  rTSLA: "#cc0000",  // Tesla red
-  rAAPL: "#555555",  // Apple gray
-  rCOIN: "#0052ff",  // Coinbase blue
-  rMSTR: "#f7931a",  // MicroStrategy orange (BTC-adjacent)
-};
 
 // ─── Follow-up prompt suggestions ───────────────────────────────────
 const FOLLOW_UP_PROMPTS = [
@@ -76,7 +68,6 @@ function Watchlist({
         const isUp = item.overnightChangePct > 0;
         const isDown = item.overnightChangePct < 0;
         const isHighlighted = highlightSymbol === item.symbol;
-        const brandColor = BRAND_COLORS[item.symbol] || "#485346";
         return (
           <button
             key={item.symbol}
@@ -88,14 +79,8 @@ function Watchlist({
               isLoading && "opacity-60",
             )}
           >
-            {/* Company-colored avatar with ticker initial */}
-            <div
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
-              style={{ backgroundColor: brandColor }}
-              aria-hidden="true"
-            >
-              {item.underlying.charAt(0)}
-            </div>
+            {/* Actual brand logo */}
+            <StockLogo symbol={item.symbol} size={32} className="flex-shrink-0" />
             <div className="flex flex-col">
               <span className="font-medium text-foreground">{item.symbol}</span>
               <span className="text-xs text-muted-foreground">{item.name}</span>
@@ -269,7 +254,6 @@ function ActionItemCard({
   onToggle: () => void;
 }) {
   const riskVariant = item.riskLevel === "high" ? "destructive" : item.riskLevel === "medium" ? "warning" : "success";
-  const brandColor = BRAND_COLORS[item.symbol] || "#485346";
   return (
     <Card className="transition-all hover:border-ring">
       <button
@@ -284,11 +268,9 @@ function ActionItemCard({
           </span>
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Symbol badge */}
-              <span
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-mono font-medium text-white"
-                style={{ backgroundColor: brandColor }}
-              >
+              {/* Symbol badge with actual logo */}
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-xs font-mono font-medium text-foreground">
+                <StockLogo symbol={item.symbol} size={14} />
                 {item.symbol}
               </span>
               <span className="font-medium text-foreground">{item.action}</span>
