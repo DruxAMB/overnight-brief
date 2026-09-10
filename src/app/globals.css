@@ -1,49 +1,51 @@
 @import "tailwindcss";
 
-/* ─── Semantic token layer ───────────────────────────────────────────
-   Token *structure* stands here from the scaffold commit. Values are
-   shadcn defaults as placeholders — refined in P5 via hackathon-style.
-   No component may hardcode a colour, radius, or magic-number spacing.
+/* ─── Modal design system — phosphor terminal ─────────────────────
+   Adapted from Modal's published design system (styles.refero.design).
+   Goga substituted with Space Grotesk (open licence, Google Fonts).
+   Inter Variable used directly (open licence, Google Fonts).
+   Dark-only — Modal is monochromatic green-on-black by design.
+   Reference: https://styles.refero.design/style/68c15685-5db9-4869-b71d-27240568c9d8
    ──────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Surfaces */
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #ffffff;
-  --card-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #52525b;
+  /* Surfaces — depth via value shifts, not shadows */
+  --background: #000000;            /* Void Black — page canvas */
+  --foreground: #ddffdc;            /* Phosphor White — headings, button text */
+  --card: #181818;                  /* Ground Iron — card surfaces */
+  --card-foreground: #ddffdc;       /* Phosphor White — text on cards */
+  --muted: #212525;                 /* Carbon Veil — elevated surfaces, muted bg */
+  --muted-foreground: #8cab87;      /* Sage 60 — body copy default */
+  --border: #485346;                /* Circuit Border — hairline borders */
+  --input: #485346;                 /* Circuit Border — input borders */
+  --ring: #7fee64;                  /* Lime Pulse — focus ring */
 
-  /* Brand / accent */
-  --primary: #171717;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
-  --destructive: #ef4444;
+  /* Brand / accent — Lime Pulse is rationed: one fill per viewport */
+  --primary: #7fee64;               /* Lime Pulse — accent fills only */
+  --primary-foreground: #181818;    /* Ground Iron — text on lime */
+  --secondary: #212525;             /* Carbon Veil — secondary surfaces */
+  --secondary-foreground: #ddffdc;  /* Phosphor White */
+  --accent: #212525;                /* Carbon Veil */
+  --accent-foreground: #ddffdc;     /* Phosphor White */
+  --destructive: #eb5757;           /* Coral Red — keep for error states */
   --destructive-foreground: #fafafa;
 
-  /* Status */
-  --success: #22c55e;
-  --success-foreground: #052e16;
-  --warning: #f59e0b;
-  --warning-foreground: #451a03;
-  --info: #3b82f6;
-  --info-foreground: #eff6ff;
+  /* Status — desaturated green palette, no blue/purple */
+  --success: #7fee64;               /* Lime Pulse — active/done states */
+  --success-foreground: #181818;
+  --warning: #aed2a4;               /* Moss 80 — caution states */
+  --warning-foreground: #181818;
+  --info: #9cbf93;                  /* Moss 70 — informational */
+  --info-foreground: #181818;
 
-  /* Radii */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-full: 9999px;
+  /* Radii — Modal uses exactly two + pills */
+  --radius-sm: 4px;
+  --radius-md: 8px;                 /* Cards, inputs */
+  --radius-lg: 12px;                /* Buttons */
+  --radius-xl: 12px;
+  --radius-full: 9999px;            /* Pills, tags only */
 
-  /* Spacing scale (Tailwind-aligned) */
+  /* Spacing scale — 4px base, Modal's comfortable density */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -54,36 +56,7 @@
   --space-16: 4rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #111111;
-    --card-foreground: #ededed;
-    --muted: #1a1a1a;
-    --muted-foreground: #a3a3a3;
-    --border: #262626;
-    --input: #262626;
-    --ring: #a1a1aa;
-
-    --primary: #ededed;
-    --primary-foreground: #0a0a0a;
-    --secondary: #1a1a1a;
-    --secondary-foreground: #ededed;
-    --accent: #1a1a1a;
-    --accent-foreground: #ededed;
-    --destructive: #7f1d1d;
-    --destructive-foreground: #fafafa;
-
-    --success: #16a34a;
-    --success-foreground: #052e16;
-    --warning: #d97706;
-    --warning-foreground: #451a03;
-    --info: #2563eb;
-    --info-foreground: #eff6ff;
-  }
-}
-
+/* Force dark theme — Modal is dark-only */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -108,7 +81,8 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
   --font-mono: var(--font-geist-mono);
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -119,11 +93,21 @@
 
 body {
   background: var(--background);
-  color: var(--foreground);
+  color: var(--muted-foreground);  /* Sage 60 body text, not phosphor white */
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: -0.022em;        /* Modal's tight tracking at 16px */
+  font-feature-settings: "cv11";   /* Inter's character variant */
 }
 
-/* Focus ring — visible on everything interactive */
+/* Headings use display font with tight tracking */
+h1, h2, h3, h4 {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  color: var(--foreground);         /* Phosphor White */
+  letter-spacing: -0.017em;        /* Modal's heading tracking */
+  font-weight: 500;                 /* Modal caps at weight 500, no bold */
+}
+
+/* Focus ring — Lime Pulse, visible on everything interactive */
 *:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;

@@ -222,7 +222,7 @@ function ActionItemCard({
         aria-expanded={expanded}
       >
         <div className="flex items-start gap-3 flex-1">
-          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
             {item.rank}
           </span>
           <div className="flex-1">
@@ -494,12 +494,12 @@ export function Workbench() {
 
       {/* Briefing (synthesized result) */}
       {hasResults && briefing && (
-        <Card className="border-ring/30 bg-muted/30">
+        <Card className="border-border bg-muted/50">
           <Stack gap="md">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-semibold text-foreground">Overnight Briefing</h2>
+                <h2 className="text-lg font-medium text-foreground">Overnight Briefing</h2>
               </div>
               <Badge variant="info">{briefing.marketRegime}</Badge>
             </div>

@@ -10,24 +10,24 @@ import { Button } from "@/components/ui";
 function Hero({ onTryDemo }: { onTryDemo: () => void }) {
   return (
     <div className="flex flex-col items-center gap-8 py-12 sm:py-20 text-center">
-      {/* Badge */}
-      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-4 py-1.5 text-xs text-muted-foreground">
+      {/* Eyebrow label — Moss 70, uppercase, tracked */}
+      <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium uppercase tracking-[0.05em] text-info">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         <span>AI Trading Desk · Bitget Hackathon S2</span>
       </div>
 
-      {/* Headline */}
+      {/* Headline — display font, Phosphor White, tight tracking */}
       <div className="max-w-3xl">
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-foreground leading-[1.05]">
           Your overnight research desk for tokenized markets
         </h1>
-        <p className="mt-6 text-lg sm:text-xl text-muted-foreground leading-relaxed">
+        <p className="mt-6 text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
           Five specialist analysts examine what happened in tokenized US-stock
           markets while you slept. One ranked briefing. Clear action items.
         </p>
       </div>
 
-      {/* CTA */}
+      {/* CTA — Accent Pill (lime, rationed) + Ghost Outline */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <Button size="lg" onClick={onTryDemo} className="w-full sm:w-auto">
           Try the demo
@@ -45,10 +45,10 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
         </a>
       </div>
 
-      {/* How it works */}
+      {/* How it works — 3-column grid, Ground Iron cards */}
       <div className="mt-8 w-full max-w-4xl">
         <div className="grid gap-6 sm:grid-cols-3 text-left">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
               <Brain className="h-5 w-5 text-foreground" aria-hidden="true" />
             </div>
@@ -58,7 +58,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
               your watchlist from its own perspective.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
               <Zap className="h-5 w-5 text-foreground" aria-hidden="true" />
             </div>
@@ -68,7 +68,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
               reasoning, not just the answer.
             </p>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-6">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
               <TrendingUp className="h-5 w-5 text-foreground" aria-hidden="true" />
             </div>
@@ -81,13 +81,12 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
         </div>
       </div>
 
-      {/* Tech stack */}
+      {/* Tech stack — desaturated chips, no decoration */}
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
         <span>Built on</span>
-        <span className="rounded-md bg-muted px-2 py-1">Bitget Agent SDK</span>
-        <span className="rounded-md bg-muted px-2 py-1">bitget-signal (5 skills)</span>
-        <span className="rounded-md bg-muted px-2 py-1">Gemini 2.0 Flash</span>
-        <span className="rounded-md bg-muted px-2 py-1">Next.js 16</span>
+        <span className="rounded-md bg-card border border-border px-2 py-1">Bitget Agent SDK</span>
+        <span className="rounded-md bg-card border border-border px-2 py-1">Qwen 3.6 Plus</span>
+        <span className="rounded-md bg-card border border-border px-2 py-1">Next.js 16</span>
       </div>
     </div>
   );
@@ -133,8 +132,8 @@ export function LandingShell({
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-background">
-      {/* Header — always visible, logo returns to hero */}
-      <header className="border-b border-border sticky top-0 z-10 bg-background/95 backdrop-blur">
+      {/* Header — Carbon Veil with backdrop blur, Phosphor Blue-Black bottom border */}
+      <header className="border-b border-border sticky top-0 z-10 bg-muted/95 backdrop-blur">
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <button
@@ -143,7 +142,7 @@ export function LandingShell({
               aria-label="Overnight Brief — back to home"
             >
               <Moon className="h-5 w-5 text-primary" aria-hidden="true" />
-              <span className="font-semibold text-foreground">Overnight Brief</span>
+              <span className="font-medium text-foreground">Overnight Brief</span>
             </button>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -183,7 +182,7 @@ export function LandingShell({
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-6">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-foreground">
                   Your overnight research desk
                 </h1>
                 <p className="mt-2 text-base text-muted-foreground max-w-2xl">
