@@ -7,6 +7,7 @@ export interface WatchlistItem {
   symbol: string; // e.g. "rNVDA" — the rToken symbol on Bitget
   underlying: string; // e.g. "NVDA" — the native US stock
   name: string; // e.g. "NVIDIA Corp"
+  lastPrice: number; // last traded price in USDT
   overnightChangePct: number; // e.g. +2.3 or -1.2
   premiumToNavPct: number; // rToken premium/discount to NAV
   volume24h: number; // 24h volume in USD
@@ -76,7 +77,7 @@ export interface Briefing {
 
 /** A streaming event from the briefing API. */
 export type BriefingStreamEvent =
-  | { type: "market-data"; isLive: boolean }
+  | { type: "market-data"; isLive: boolean; timestamp: string; watchlist: WatchlistItem[] }
   | { type: "analyst-start"; analystId: AnalystId; analystName: string; emoji: string }
   | { type: "analyst-chunk"; analystId: AnalystId; chunk: string }
   | { type: "analyst-done"; analystId: AnalystId; finding: AnalystFinding }

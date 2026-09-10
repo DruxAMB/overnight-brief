@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  Send,
   Sparkles,
   TrendingUp,
   TrendingDown,
@@ -13,16 +12,16 @@ import {
   Loader2,
   Clock,
   Database,
+  X,
+  ArrowUp,
 } from "lucide-react";
-import { Card, Badge, Button, Skeleton, EmptyState } from "@/components/ui";
-import { Grid, Stack } from "@/components/layout";
+import { Card, Badge, Button, Skeleton } from "@/components/ui";
+import { Stack } from "@/components/layout";
 import { cn } from "@/lib/utils";
 import {
   ANALYST_PERSONAS,
   SEED_WATCHLIST,
   DEFAULT_PROMPT,
-  SEED_FINDINGS,
-  SEED_BRIEFING,
 } from "@/lib/seed-data";
 import type {
   AnalystId,
@@ -34,43 +33,96 @@ import type {
   WatchlistItem,
 } from "@/lib/types";
 
+// ─── Company brand colors for watchlist avatars ────────────────────
+const BRAND_COLORS: Record<string, string> = {
+  rNVDA: "#76b900",  // NVIDIA green
+  rTSLA: "#cc0000",  // Tesla red
+  rAAPL: "#555555",  // Apple gray
+  rCOIN: "#0052ff",  // Coinbase blue
+  rMSTR: "#f7931a",  // MicroStrategy orange (BTC-adjacent)
+};
+
+// ─── Follow-up prompt suggestions ───────────────────────────────────
+const FOLLOW_UP_PROMPTS = [
+  "Should I adjust my rNVDA position?",
+  "What's the biggest risk on my watchlist?",
+  "Is rTSLA a buy or a wait right now?",
+  "Which position should I trim first?",
+];
+
+const EXAMPLE_PROMPTS = [
+  "What happened while I slept?",
+  "Should I adjust my rNVDA position?",
+  "What's the biggest overnight risk?",
+  "Which rToken looks strongest today?",
+];
+
 // ─── Watchlist component ───────────────────────────────────────────
 
-function Watchlist({ items, highlightSymbol }: { items: WatchlistItem[]; highlightSymbol?: string }) {
+function Watchlist({
+  items,
+  highlightSymbol,
+  onSelect,
+  isLoading,
+}: {
+  items: WatchlistItem[];
+  highlightSymbol?: string;
+  onSelect?: (symbol: string) => void;
+  isLoading?: boolean;
+}) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item) => {
         const isUp = item.overnightChangePct > 0;
         const isDown = item.overnightChangePct < 0;
         const isHighlighted = highlightSymbol === item.symbol;
+        const brandColor = BRAND_COLORS[item.symbol] || "#485346";
         return (
-          <div
+          <button
             key={item.symbol}
+            onClick={() => onSelect?.(item.symbol)}
             className={cn(
-              "flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm transition-colors",
-              isHighlighted && "ring-2 ring-ring",
+              "flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2 text-sm transition-all text-left",
+              onSelect && "hover:border-ring cursor-pointer",
+              isHighlighted && "ring-2 ring-ring border-transparent",
+              isLoading && "opacity-60",
             )}
           >
+            {/* Company-colored avatar with ticker initial */}
+            <div
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
+              style={{ backgroundColor: brandColor }}
+              aria-hidden="true"
+            >
+              {item.underlying.charAt(0)}
+            </div>
             <div className="flex flex-col">
               <span className="font-medium text-foreground">{item.symbol}</span>
               <span className="text-xs text-muted-foreground">{item.name}</span>
             </div>
-            <div className="flex items-center gap-1">
-              {isUp && <TrendingUp className="h-3.5 w-3.5 text-success" aria-hidden="true" />}
-              {isDown && <TrendingDown className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />}
-              {!isUp && !isDown && <Minus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
-              <span
-                className={cn(
-                  "font-mono text-xs",
-                  isUp && "text-success",
-                  isDown && "text-destructive",
-                  !isUp && !isDown && "text-muted-foreground",
-                )}
-              >
-                {isUp ? "+" : ""}{item.overnightChangePct.toFixed(1)}%
-              </span>
+            <div className="flex flex-col items-end ml-1">
+              {item.lastPrice > 0 && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  ${item.lastPrice >= 1000 ? item.lastPrice.toFixed(0) : item.lastPrice.toFixed(2)}
+                </span>
+              )}
+              <div className="flex items-center gap-1">
+                {isUp && <TrendingUp className="h-3 w-3 text-success" aria-hidden="true" />}
+                {isDown && <TrendingDown className="h-3 w-3 text-destructive" aria-hidden="true" />}
+                {!isUp && !isDown && <Minus className="h-3 w-3 text-muted-foreground" aria-hidden="true" />}
+                <span
+                  className={cn(
+                    "font-mono text-xs",
+                    isUp && "text-success",
+                    isDown && "text-destructive",
+                    !isUp && !isDown && "text-muted-foreground",
+                  )}
+                >
+                  {isUp ? "+" : ""}{item.overnightChangePct.toFixed(1)}%
+                </span>
+              </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -109,7 +161,7 @@ function AnalystPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground">{persona.name}</span>
-              {isThinking && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden="true" />}
+              {isThinking && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />}
               {isDone && <Badge variant="success">Done</Badge>}
               {isError && <Badge variant="destructive">Error</Badge>}
             </div>
@@ -130,9 +182,10 @@ function AnalystPanel({
         <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
       )}
 
-      {/* Thinking skeleton */}
+      {/* Thinking skeleton with status text */}
       {isThinking && (
         <div className="mt-3 space-y-2" aria-label="Analyst thinking">
+          <p className="text-xs text-primary animate-pulse">Analyzing {persona.name.toLowerCase()} signals...</p>
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-5/6" />
@@ -141,7 +194,7 @@ function AnalystPanel({
 
       {/* Error state */}
       {isError && finding?.error && (
-        <div className="mt-3 flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="mt-3 flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <span>{finding.error}</span>
         </div>
@@ -151,7 +204,7 @@ function AnalystPanel({
       {expanded && isDone && finding && (
         <div className="mt-4 space-y-4 border-t border-border pt-4">
           <div>
-            <p className="text-sm text-foreground">{finding.details}</p>
+            <p className="text-sm text-foreground leading-relaxed">{finding.details}</p>
           </div>
           {finding.signals.length > 0 && (
             <div>
@@ -183,7 +236,10 @@ function AnalystPanel({
             <span className="text-xs font-medium text-muted-foreground">Confidence</span>
             <div className="h-2 flex-1 max-w-32 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary transition-all"
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  finding.confidence >= 75 ? "bg-success" : finding.confidence >= 50 ? "bg-warning" : "bg-destructive",
+                )}
                 style={{ width: `${finding.confidence}%` }}
                 role="progressbar"
                 aria-valuenow={finding.confidence}
@@ -213,6 +269,7 @@ function ActionItemCard({
   onToggle: () => void;
 }) {
   const riskVariant = item.riskLevel === "high" ? "destructive" : item.riskLevel === "medium" ? "warning" : "success";
+  const brandColor = BRAND_COLORS[item.symbol] || "#485346";
   return (
     <Card className="transition-all hover:border-ring">
       <button
@@ -227,6 +284,13 @@ function ActionItemCard({
           </span>
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Symbol badge */}
+              <span
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-mono font-medium text-white"
+                style={{ backgroundColor: brandColor }}
+              >
+                {item.symbol}
+              </span>
               <span className="font-medium text-foreground">{item.action}</span>
               <Badge variant={riskVariant}>{item.riskLevel} risk</Badge>
             </div>
@@ -241,7 +305,7 @@ function ActionItemCard({
       </button>
       {expanded && (
         <div className="mt-4 space-y-3 border-t border-border pt-4">
-          <p className="text-sm text-foreground">{item.rationale}</p>
+          <p className="text-sm text-foreground leading-relaxed">{item.rationale}</p>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-2">Flagged by {item.analystIds.length}/5 analysts</p>
             <div className="flex flex-wrap gap-2">
@@ -261,7 +325,10 @@ function ActionItemCard({
             <span className="text-xs font-medium text-muted-foreground">Confidence</span>
             <div className="h-2 flex-1 max-w-32 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-primary transition-all"
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  item.confidence >= 75 ? "bg-success" : item.confidence >= 50 ? "bg-warning" : "bg-destructive",
+                )}
                 style={{ width: `${item.confidence}%` }}
                 role="progressbar"
                 aria-valuenow={item.confidence}
@@ -295,7 +362,11 @@ export function Workbench() {
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dataIsLive, setDataIsLive] = useState<boolean | null>(null);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(SEED_WATCHLIST);
+  const [dataTimestamp, setDataTimestamp] = useState<string | null>(null);
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const briefingRef = useRef<HTMLDivElement>(null);
 
   const runBriefing = useCallback(async (promptText: string) => {
     if (!promptText.trim() || runState === "running") return;
@@ -305,6 +376,10 @@ export function Workbench() {
     setError(null);
     setBriefing(null);
     setDataIsLive(null);
+    setDataTimestamp(null);
+    setIsSynthesizing(false);
+    setExpandedAnalyst(null);
+    setExpandedAction(null);
     setAnalystStatuses(
       Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, "idle"])) as Record<AnalystId, AnalystStatus>,
     );
@@ -374,6 +449,10 @@ export function Workbench() {
     switch (event.type) {
       case "market-data":
         setDataIsLive(event.isLive);
+        setDataTimestamp(event.timestamp);
+        if (event.watchlist && event.watchlist.length > 0) {
+          setWatchlist(event.watchlist);
+        }
         break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
@@ -400,20 +479,85 @@ export function Workbench() {
           },
         }));
         break;
+      case "synthesis-start":
+        setIsSynthesizing(true);
+        break;
       case "briefing-done":
         setBriefing(event.briefing);
         setRunState("done");
+        setIsSynthesizing(false);
         break;
       case "error":
         setError(event.error);
         setRunState("error");
+        setIsSynthesizing(false);
         break;
     }
   }
 
+  // Auto-expand first completed analyst and scroll to briefing when done
+  useEffect(() => {
+    if (runState === "done" && briefing) {
+      // Scroll to briefing
+      briefingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Auto-expand the first analyst after a short delay
+      const timer = setTimeout(() => {
+        if (expandedAnalyst === null) {
+          setExpandedAnalyst(ANALYST_PERSONAS[0].id);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [runState, briefing, expandedAnalyst]);
+
+  // Keyboard shortcut: Cmd/Ctrl+Enter to submit
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && runState !== "running") {
+        e.preventDefault();
+        runBriefing(prompt);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [prompt, runState, runBriefing]);
+
   const isRunning = runState === "running";
   const hasResults = briefing !== null;
   const highlightSymbol = briefing?.actionItems[0]?.symbol;
+
+  // Progress counter: how many analysts are done
+  const doneCount = Object.values(analystStatuses).filter((s) => s === "done" || s === "error").length;
+  const totalAnalysts = ANALYST_PERSONAS.length;
+  const progressLabel = isSynthesizing
+    ? "Synthesizing briefing..."
+    : isRunning && doneCount < totalAnalysts
+      ? `Analyst ${doneCount + 1} of ${totalAnalysts} running...`
+      : null;
+
+  const handleWatchlistSelect = useCallback((symbol: string) => {
+    // Clicking a watchlist item fills the prompt with a focus on that symbol
+    setPrompt(`Should I adjust my ${symbol} position?`);
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setRunState("idle");
+    setIsSynthesizing(false);
+    // Reset analyst statuses to idle
+    setAnalystStatuses(
+      Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, "idle"])) as Record<AnalystId, AnalystStatus>,
+    );
+  }, []);
+
+  // Format timestamp for display
+  const formattedTimestamp = dataTimestamp
+    ? new Date(dataTimestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC"
+    : null;
+
+  const briefingTimestamp = briefing?.generatedAt
+    ? new Date(briefing.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC"
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -435,26 +579,45 @@ export function Workbench() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="What happened while I slept?"
-              className="w-full resize-none rounded-md border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full resize-none rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={2}
-              style={{ fontSize: "16px" }} // ≥16px to prevent iOS zoom
+              style={{ fontSize: "16px" }}
               disabled={isRunning}
             />
           </div>
-          <Button type="submit" disabled={isRunning || !prompt.trim()} className="sm:w-auto">
-            {isRunning ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
-                Generate Briefing
-              </>
+          <div className="flex gap-2 sm:flex-col">
+            <Button type="submit" disabled={isRunning || !prompt.trim()} className="sm:w-auto">
+              {isRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  {progressLabel || "Analyzing..."}
+                </>
+              ) : hasResults ? (
+                <>
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  Regenerate
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  Generate Briefing
+                </>
+              )}
+            </Button>
+            {isRunning && (
+              <Button type="button" variant="ghost" size="md" onClick={handleCancel} className="sm:w-auto">
+                <X className="h-4 w-4" aria-hidden="true" />
+                Cancel
+              </Button>
             )}
-          </Button>
+          </div>
         </form>
+        {/* Keyboard hint */}
+        {!isRunning && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Press <kbd className="rounded border border-border px-1 py-0.5 text-xs">⌘/Ctrl + Enter</kbd> to generate
+          </p>
+        )}
       </Card>
 
       {/* Watchlist */}
@@ -463,11 +626,45 @@ export function Workbench() {
           <h2 className="text-sm font-medium text-muted-foreground">Your Watchlist</h2>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Clock className="h-3 w-3" aria-hidden="true" />
-            Overnight snapshot
+            {formattedTimestamp ? `Updated ${formattedTimestamp}` : "Overnight snapshot"}
+            {dataIsLive !== null && (
+              <Badge variant={dataIsLive ? "success" : "warning"} className="ml-1">
+                {dataIsLive ? "LIVE" : "DEMO"}
+              </Badge>
+            )}
           </span>
         </div>
-        <Watchlist items={SEED_WATCHLIST} highlightSymbol={highlightSymbol} />
+        <Watchlist
+          items={watchlist}
+          highlightSymbol={highlightSymbol}
+          onSelect={handleWatchlistSelect}
+          isLoading={isRunning && dataIsLive === null}
+        />
       </div>
+
+      {/* Progress bar during analysis */}
+      {isRunning && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              {progressLabel || "Starting..."}
+            </span>
+            <span className="font-mono text-muted-foreground">
+              {Math.round((doneCount / totalAnalysts) * 100)}%
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${(doneCount / totalAnalysts) * 100}%` }}
+              role="progressbar"
+              aria-valuenow={doneCount}
+              aria-valuemin={0}
+              aria-valuemax={totalAnalysts}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -494,41 +691,93 @@ export function Workbench() {
 
       {/* Briefing (synthesized result) */}
       {hasResults && briefing && (
-        <Card className="border-border bg-muted/50">
-          <Stack gap="md">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-                <h2 className="text-lg font-medium text-foreground">Overnight Briefing</h2>
+        <div ref={briefingRef}>
+          <Card className="border-border bg-muted/50">
+            <Stack gap="md">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
+                  <h2 className="text-lg font-medium text-foreground">Overnight Briefing</h2>
+                  {briefingTimestamp && (
+                    <span className="text-xs text-muted-foreground ml-2">{briefingTimestamp}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {dataIsLive !== null && (
+                    <Badge variant={dataIsLive ? "success" : "warning"}>
+                      {dataIsLive ? "LIVE DATA" : "DEMO DATA"}
+                    </Badge>
+                  )}
+                  <Badge variant="info">{briefing.marketRegime}</Badge>
+                </div>
               </div>
-              <Badge variant="info">{briefing.marketRegime}</Badge>
-            </div>
-            <p className="text-base text-foreground leading-relaxed">{briefing.executiveSummary}</p>
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Ranked Action Items</h3>
-              <Stack gap="md">
-                {briefing.actionItems.map((item) => (
-                  <ActionItemCard
-                    key={item.id}
-                    item={item}
-                    analysts={ANALYST_PERSONAS}
-                    expanded={expandedAction === item.id}
-                    onToggle={() => setExpandedAction(expandedAction === item.id ? null : item.id)}
-                  />
-                ))}
-              </Stack>
-            </div>
-          </Stack>
-        </Card>
+              <p className="text-base text-foreground leading-relaxed">{briefing.executiveSummary}</p>
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Ranked Action Items</h3>
+                <Stack gap="md">
+                  {briefing.actionItems.map((item) => (
+                    <ActionItemCard
+                      key={item.id}
+                      item={item}
+                      analysts={ANALYST_PERSONAS}
+                      expanded={expandedAction === item.id}
+                      onToggle={() => setExpandedAction(expandedAction === item.id ? null : item.id)}
+                    />
+                  ))}
+                </Stack>
+              </div>
+              {/* Follow-up prompt chips */}
+              <div className="border-t border-border pt-4">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Ask a follow-up</p>
+                <div className="flex flex-wrap gap-2">
+                  {FOLLOW_UP_PROMPTS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setPrompt(p);
+                        runBriefing(p);
+                      }}
+                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-ring hover:bg-muted"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Stack>
+          </Card>
+        </div>
       )}
 
       {/* Empty state (before first run) */}
       {runState === "idle" && !hasResults && (
-        <EmptyState
-          icon={<Sparkles className="h-10 w-10" aria-hidden="true" />}
-          title="No briefing yet"
-          description="Click Generate Briefing to run all five specialist analysts and synthesize your overnight briefing."
-        />
+        <Card className="border-dashed">
+          <div className="flex flex-col items-center justify-center gap-4 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Sparkles className="h-6 w-6 text-primary" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">No briefing yet</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md">
+                Click Generate Briefing to run all five specialist analysts and synthesize your overnight briefing.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg">
+              {EXAMPLE_PROMPTS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setPrompt(p);
+                    runBriefing(p);
+                  }}
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-ring hover:bg-muted"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Analyst panels */}
@@ -548,7 +797,7 @@ export function Workbench() {
         </Stack>
       </div>
 
-      {/* Simulated data disclosure */}
+      {/* Data disclosure */}
       <p className="text-xs text-muted-foreground text-center">
         {dataIsLive === null
           ? "Market data loads when you generate a briefing."

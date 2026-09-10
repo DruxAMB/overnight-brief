@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         const { items: watchlist, isLive } = await fetchWatchlist();
 
         // Signal data source to the client
-        send({ type: "market-data", isLive } as BriefingStreamEvent & { type: "market-data"; isLive: boolean });
+        send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });
 
         // Run analysts sequentially — each panel lights up one by one.
         // This is the money shot: watching 5 panels activate in sequence.
