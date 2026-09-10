@@ -13,11 +13,12 @@ import {
   Clock,
   Database,
   X,
-  ArrowUp,
 } from "lucide-react";
 import { Card, Badge, Button, Skeleton } from "@/components/ui";
 import { Stack } from "@/components/layout";
 import { StockLogo } from "@/components/stock-logo";
+import { ThinkingOrb } from "thinking-orbs";
+import { BorderBeam } from "border-beam";
 import { cn } from "@/lib/utils";
 import {
   ANALYST_PERSONAS,
@@ -48,6 +49,17 @@ const EXAMPLE_PROMPTS = [
   "What's the biggest overnight risk?",
   "Which rToken looks strongest today?",
 ];
+
+// ─── Analyst orb states ────────────────────────────────────────────
+// Each analyst gets a distinct ThinkingOrb state so the five panels
+// feel like different kinds of work happening, not five identical spinners.
+const ANALYST_ORB_STATES: Record<AnalystId, "searching" | "working" | "listening" | "weaving" | "solving"> = {
+  macro: "searching",
+  "market-intel": "working",
+  news: "listening",
+  sentiment: "weaving",
+  technical: "solving",
+};
 
 // ─── Watchlist component ───────────────────────────────────────────
 
@@ -146,7 +158,14 @@ function AnalystPanel({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground">{persona.name}</span>
-              {isThinking && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />}
+              {isThinking && (
+                <ThinkingOrb
+                  state={ANALYST_ORB_STATES[persona.id]}
+                  size={20}
+                  theme="dark"
+                  speed={1.2}
+                />
+              )}
               {isDone && <Badge variant="success">Done</Badge>}
               {isError && <Badge variant="destructive">Error</Badge>}
             </div>
@@ -167,13 +186,20 @@ function AnalystPanel({
         <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
       )}
 
-      {/* Thinking skeleton with status text */}
+      {/* Thinking state — orb + status text */}
       {isThinking && (
-        <div className="mt-3 space-y-2" aria-label="Analyst thinking">
-          <p className="text-xs text-primary animate-pulse">Analyzing {persona.name.toLowerCase()} signals...</p>
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-5/6" />
+        <div className="mt-4 flex items-center gap-3" aria-label="Analyst thinking">
+          <ThinkingOrb
+            state={ANALYST_ORB_STATES[persona.id]}
+            size={64}
+            theme="dark"
+            speed={1.2}
+          />
+          <div className="flex-1 space-y-2">
+            <p className="text-xs text-primary">Analyzing {persona.name.toLowerCase()} signals...</p>
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
         </div>
       )}
 
@@ -671,63 +697,82 @@ export function Workbench() {
         </Card>
       )}
 
+      {/* Synthesis state — orb while the synthesizer assembles the briefing */}
+      {isSynthesizing && !hasResults && (
+        <Card className="border-border bg-muted/50 flex items-center justify-center gap-4 py-12">
+          <ThinkingOrb state="composing" size={64} theme="dark" speed={1} />
+          <div>
+            <p className="font-medium text-foreground">Synthesizing briefing</p>
+            <p className="text-sm text-muted-foreground mt-1">Merging all five analyst findings into a ranked briefing...</p>
+          </div>
+        </Card>
+      )}
+
       {/* Briefing (synthesized result) */}
       {hasResults && briefing && (
         <div ref={briefingRef}>
-          <Card className="border-border bg-muted/50">
-            <Stack gap="md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <h2 className="text-lg font-medium text-foreground">Overnight Briefing</h2>
-                  {briefingTimestamp && (
-                    <span className="text-xs text-muted-foreground ml-2">{briefingTimestamp}</span>
-                  )}
+          <BorderBeam
+            size="md"
+            colorVariant="mono"
+            strength={0.4}
+            active={false}
+            theme="dark"
+          >
+            <Card className="border-border bg-muted/50">
+              <Stack gap="md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
+                    <h2 className="text-lg font-medium text-foreground">Overnight Briefing</h2>
+                    {briefingTimestamp && (
+                      <span className="text-xs text-muted-foreground ml-2">{briefingTimestamp}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dataIsLive !== null && (
+                      <Badge variant={dataIsLive ? "success" : "warning"}>
+                        {dataIsLive ? "LIVE DATA" : "DEMO DATA"}
+                      </Badge>
+                    )}
+                    <Badge variant="info">{briefing.marketRegime}</Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {dataIsLive !== null && (
-                    <Badge variant={dataIsLive ? "success" : "warning"}>
-                      {dataIsLive ? "LIVE DATA" : "DEMO DATA"}
-                    </Badge>
-                  )}
-                  <Badge variant="info">{briefing.marketRegime}</Badge>
+                <p className="text-base text-foreground leading-relaxed">{briefing.executiveSummary}</p>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Ranked Action Items</h3>
+                  <Stack gap="md">
+                    {briefing.actionItems.map((item) => (
+                      <ActionItemCard
+                        key={item.id}
+                        item={item}
+                        analysts={ANALYST_PERSONAS}
+                        expanded={expandedAction === item.id}
+                        onToggle={() => setExpandedAction(expandedAction === item.id ? null : item.id)}
+                      />
+                    ))}
+                  </Stack>
                 </div>
-              </div>
-              <p className="text-base text-foreground leading-relaxed">{briefing.executiveSummary}</p>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">Ranked Action Items</h3>
-                <Stack gap="md">
-                  {briefing.actionItems.map((item) => (
-                    <ActionItemCard
-                      key={item.id}
-                      item={item}
-                      analysts={ANALYST_PERSONAS}
-                      expanded={expandedAction === item.id}
-                      onToggle={() => setExpandedAction(expandedAction === item.id ? null : item.id)}
-                    />
-                  ))}
-                </Stack>
-              </div>
-              {/* Follow-up prompt chips */}
-              <div className="border-t border-border pt-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Ask a follow-up</p>
-                <div className="flex flex-wrap gap-2">
-                  {FOLLOW_UP_PROMPTS.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => {
-                        setPrompt(p);
-                        runBriefing(p);
-                      }}
-                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-ring hover:bg-muted"
-                    >
-                      {p}
-                    </button>
-                  ))}
+                {/* Follow-up prompt chips */}
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Ask a follow-up</p>
+                  <div className="flex flex-wrap gap-2">
+                    {FOLLOW_UP_PROMPTS.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          setPrompt(p);
+                          runBriefing(p);
+                        }}
+                        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-ring hover:bg-muted"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </Stack>
-          </Card>
+              </Stack>
+            </Card>
+          </BorderBeam>
         </div>
       )}
 
