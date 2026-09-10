@@ -123,3 +123,130 @@ h1, h2, h3, h4 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Shimmer animation for eyebrow badge ──────────────────────────
+   A subtle lime sweep across the badge text, like a phosphor scan.
+   Honours reduced-motion (disabled above via the global rule). */
+
+@keyframes shimmer-sweep {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--info) 0%,
+    var(--info) 40%,
+    var(--primary) 50%,
+    var(--info) 60%,
+    var(--info) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-sweep 3s linear infinite;
+}
+
+/* ─── Hero icon animations ─────────────────────────────────────────
+   Inspired by yui540/css-animations: layered keyframes with different
+   timings and cubic-bezier easing for natural movement.
+   Each icon gets a distinct animation that matches its meaning. */
+
+/* Brain — slow neuron pulse, like a thought forming */
+@keyframes icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+.icon-animate-brain {
+  animation: icon-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center;
+}
+
+/* Zap — quick energy burst, like a spark firing */
+@keyframes icon-zap {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  10% {
+    transform: scale(1.25) rotate(-5deg);
+  }
+  20% {
+    transform: scale(1.1) rotate(3deg);
+  }
+  30% {
+    transform: scale(1.2) rotate(-2deg);
+  }
+  40% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.icon-animate-zap {
+  animation: icon-zap 3s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+  transform-origin: center;
+}
+
+/* TrendingUp — steady upward drift, like a chart climbing */
+@keyframes icon-trend {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.05);
+  }
+}
+
+.icon-animate-trend {
+  animation: icon-trend 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center bottom;
+}
+
+/* ─── Tech marquee with fading ends ──────────────────────────────── */
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-scroll 30s linear infinite;
+  will-change: transform;
+}
+
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+
+.marquee-mask:hover .marquee-track {
+  animation-play-state: paused;
+}
