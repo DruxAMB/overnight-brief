@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ANALYST_PERSONAS } from "@/lib/seed-data";
 import { runAnalyst, synthesizeBriefing } from "@/lib/analysts";
 import { fetchWatchlist } from "@/lib/bitget-market";
+import { getRTokenMeta, DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
 import type { BriefingStreamEvent, WatchlistItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -10,6 +11,12 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const prompt: string = String(body.prompt || "What happened while I slept?");
+  // Client can send a custom watchlist of rToken symbols for personalization.
+  // Falls back to the default 5 if not provided or invalid.
+  const clientSymbols: string[] = Array.isArray(body.symbols)
+    ? body.symbols.filter((s: unknown) => typeof s === "string" && getRTokenMeta(String(s)))
+    : [];
+  const symbols = clientSymbols.length > 0 ? clientSymbols : DEFAULT_WATCHLIST_SYMBOLS;
 
   const encoder = new TextEncoder();
 
@@ -20,9 +27,9 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        // Fetch real market data from Bitget before running analysts.
+        // Fetch real market data from Bitget for the user's selected symbols.
         // Falls back to seed data if the API is unreachable.
-        const { items: watchlist, isLive } = await fetchWatchlist();
+        const { items: watchlist, isLive } = await fetchWatchlist(symbols);
 
         // Signal data source to the client
         send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });

@@ -1,6 +1,7 @@
 import { loadConfig, BitgetRestClient } from "@bitget-ai/bitget-agent-sdk";
 import type { WatchlistItem } from "./types";
 import { SEED_WATCHLIST } from "./seed-data";
+import { getRTokenMeta } from "./rtoken-catalog";
 
 // ─── Bitget market data adapter ───────────────────────────────────
 // Fetches real rToken market data from Bitget's public API endpoints.
@@ -22,14 +23,20 @@ function getClient(): BitgetRestClient {
   return client;
 }
 
-/** The rToken symbols we track, mapped to Bitget spot pair format. */
-const RTOKEN_SYMBOLS = SEED_WATCHLIST.map((w) => ({
-  symbol: w.symbol,
-  bitgetSymbol: `${w.symbol}USDT`,
-  underlying: w.underlying,
-  name: w.name,
-  positionSize: w.positionSize,
-}));
+/** Build the symbol list from the user's selection, mapped to Bitget pair format. */
+function buildSymbolList(symbols: string[]) {
+  return symbols.map((symbol) => {
+    const meta = getRTokenMeta(symbol);
+    const seed = SEED_WATCHLIST.find((w) => w.symbol === symbol);
+    return {
+      symbol,
+      bitgetSymbol: `${symbol}USDT`,
+      underlying: meta?.underlying || seed?.underlying || symbol.replace("r", ""),
+      name: meta?.name || seed?.name || symbol,
+      positionSize: seed?.positionSize || 0,
+    };
+  });
+}
 
 interface BitgetTicker {
   symbol: string;
@@ -72,20 +79,24 @@ export interface OpenInterest {
 }
 
 /**
- * Fetch real rToken market data from Bitget.
+ * Fetch real rToken market data from Bitget for the user's selected symbols.
  * Returns a watchlist with live prices, changes, and volumes.
  * Falls back to seed data on any error.
  */
-export async function fetchWatchlist(): Promise<{
+export async function fetchWatchlist(symbols?: string[]): Promise<{
   items: WatchlistItem[];
   isLive: boolean;
   error?: string;
 }> {
+  const symbolList = symbols && symbols.length > 0
+    ? buildSymbolList(symbols)
+    : buildSymbolList(SEED_WATCHLIST.map((w) => w.symbol));
+
   try {
     const restClient = getClient();
     const items: WatchlistItem[] = [];
 
-    for (const rt of RTOKEN_SYMBOLS) {
+    for (const rt of symbolList) {
       try {
         const result = await restClient.callOperation("getTickers", {
           category: "SPOT",
@@ -326,5 +337,50 @@ export async function fetchOpenInterest(
     const msg = err instanceof Error ? err.message : "Unknown error";
     console.error(`[Bitget] Open interest fetch failed for ${symbol}:`, msg);
     return { openInterest: null, isLive: false, error: msg };
+  }
+}
+
+/**
+ * Fetch BTC and ETH spot tickers from Bitget as a macro proxy.
+ * Used by the Macro Oracle when MCP global_assets / cross_asset are unavailable.
+ * BTC is the primary crypto market benchmark and correlates with rToken sentiment.
+ */
+export async function fetchCryptoTickers(): Promise<{
+  btc: { price: number; changePct: number; volume: number } | null;
+  eth: { price: number; changePct: number; volume: number } | null;
+  isLive: boolean;
+}> {
+  try {
+    const symbols = ["BTCUSDT", "ETHUSDT"];
+    const results = await Promise.all(
+      symbols.map(async (sym) => {
+        const url = `https://api.bitget.com/api/v2/spot/market/tickers?symbol=${sym}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!r.ok) return null;
+        const data = await r.json() as {
+          code: string;
+          data: Array<{ lastPr: string; change24hPct: string; quoteVolume: string }>;
+        };
+        if (data.code !== "00000" || !data.data?.length) return null;
+        const t = data.data[0];
+        return {
+          price: parseFloat(t.lastPr) || 0,
+          changePct: parseFloat(t.change24hPct) || 0,
+          volume: parseFloat(t.quoteVolume) || 0,
+        };
+      }),
+    );
+
+    return {
+      btc: results[0],
+      eth: results[1],
+      isLive: results[0] !== null || results[1] !== null,
+    };
+  } catch (err) {
+    console.error("[Bitget] Crypto tickers fetch failed:", err);
+    return { btc: null, eth: null, isLive: false };
   }
 }

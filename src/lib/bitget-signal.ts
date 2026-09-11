@@ -124,7 +124,23 @@ async function callMcpTool<T = unknown>(
       .join("");
     if (!contentText) return null;
 
-    return JSON.parse(contentText) as T;
+    const parsed = JSON.parse(contentText) as T;
+
+    // Detect empty/error responses that the MCP server returns as
+    // {"error": ""} or {"alt_me_error": ""} rather than real data.
+    if (parsed && typeof parsed === "object") {
+      const obj = parsed as Record<string, unknown>;
+      // If the only field is an empty error string, treat as no data
+      const keys = Object.keys(obj);
+      if (keys.length <= 2 && ("error" in obj || "alt_me_error" in obj)) {
+        const errorVal = obj.error ?? obj.alt_me_error;
+        if (errorVal === "" || errorVal === null || errorVal === undefined) {
+          return null;
+        }
+      }
+    }
+
+    return parsed;
   } catch {
     return null;
   }

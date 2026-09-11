@@ -25,6 +25,8 @@ import {
   SEED_WATCHLIST,
   DEFAULT_PROMPT,
 } from "@/lib/seed-data";
+import { EditableWatchlist, loadWatchlistSymbols } from "@/components/editable-watchlist";
+import { DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
 import type {
   AnalystId,
   AnalystStatus,
@@ -373,8 +375,14 @@ export function Workbench() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>(SEED_WATCHLIST);
   const [dataTimestamp, setDataTimestamp] = useState<string | null>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [userSymbols, setUserSymbols] = useState<string[]>(DEFAULT_WATCHLIST_SYMBOLS);
   const abortRef = useRef<AbortController | null>(null);
   const briefingRef = useRef<HTMLDivElement>(null);
+
+  // Load user's personalized watchlist from localStorage on mount
+  useEffect(() => {
+    setUserSymbols(loadWatchlistSymbols());
+  }, []);
 
   const runBriefing = useCallback(async (promptText: string) => {
     if (!promptText.trim() || runState === "running") return;
@@ -402,7 +410,7 @@ export function Workbench() {
       const res = await fetch("/api/briefing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptText }),
+        body: JSON.stringify({ prompt: promptText, symbols: userSymbols }),
         signal: controller.signal,
       });
 
@@ -451,7 +459,7 @@ export function Workbench() {
       setError(msg);
       setRunState("error");
     }
-  }, [runState]);
+  }, [runState, userSymbols]);
 
   function handleStreamEvent(event: BriefingStreamEvent) {
     switch (event.type) {
@@ -648,6 +656,13 @@ export function Workbench() {
           onSelect={handleWatchlistSelect}
           isLoading={isRunning && dataIsLive === null}
         />
+        <div className="mt-3">
+          <EditableWatchlist
+            symbols={userSymbols}
+            onSymbolsChange={setUserSymbols}
+            disabled={isRunning}
+          />
+        </div>
       </div>
 
       {/* Progress bar during analysis */}

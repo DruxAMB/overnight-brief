@@ -1,9 +1,16 @@
 import { ANALYST_PERSONAS, SEED_FINDINGS, SEED_BRIEFING } from "@/lib/seed-data";
-import type { AnalystId, AnalystFinding, Briefing, WatchlistItem } from "@/lib/types";
+import type {
+  AnalystId,
+  AnalystFinding,
+  AnalystSignal,
+  Briefing,
+  WatchlistItem,
+} from "@/lib/types";
 import {
   fetchCandles,
   fetchFundingRate,
   fetchOpenInterest,
+  fetchCryptoTickers,
   type Candle,
 } from "@/lib/bitget-market";
 import { analyzeCandles, type TechnicalSummary } from "@/lib/indicators";
@@ -129,6 +136,8 @@ interface MacroData {
   vix: { price: number; change?: number } | null;
   fomcNews: { title: string; date?: string }[];
   btcCorrelation: Record<string, number> | null;
+  btc: { price: number; changePct: number; volume: number } | null;
+  eth: { price: number; changePct: number; volume: number } | null;
 }
 
 interface MarketIntelData {
@@ -152,15 +161,24 @@ interface TechnicalData {
 }
 
 async function fetchMacroData(watchlist: WatchlistItem[]): Promise<MacroData> {
-  const [yieldCurve, dxy, vix, fomcNews, btcCorrelation] = await Promise.all([
+  const [yieldCurve, dxy, vix, fomcNews, btcCorrelation, cryptoTickers] = await Promise.all([
     fetchYieldCurve(),
     fetchGlobalAssetPrice("DX-Y.NYB"),
     fetchGlobalAssetPrice("^VIX"),
     fetchFomcNews(3),
     fetchCrossAssetCorrelation("btc", "gold,dxy,ndx,spx", "1y", 30),
+    fetchCryptoTickers(),
   ]);
 
-  return { yieldCurve, dxy, vix, fomcNews, btcCorrelation };
+  return {
+    yieldCurve,
+    dxy,
+    vix,
+    fomcNews,
+    btcCorrelation,
+    btc: cryptoTickers.btc,
+    eth: cryptoTickers.eth,
+  };
 }
 
 async function fetchMarketIntelData(watchlist: WatchlistItem[]): Promise<MarketIntelData> {
@@ -243,6 +261,12 @@ function formatWatchlist(watchlist: WatchlistItem[]): string {
 
 function formatMacroData(data: MacroData): string {
   const parts: string[] = [];
+  if (data.btc) {
+    parts.push(`BTC: $${data.btc.price.toLocaleString()} (${data.btc.changePct > 0 ? "+" : ""}${data.btc.changePct.toFixed(2)}% 24h)`);
+  }
+  if (data.eth) {
+    parts.push(`ETH: $${data.eth.price.toLocaleString()} (${data.eth.changePct > 0 ? "+" : ""}${data.eth.changePct.toFixed(2)}% 24h)`);
+  }
   if (data.yieldCurve) {
     parts.push(`Yield curve: 10Y=${data.yieldCurve.t10y.toFixed(2)}%, 2Y=${data.yieldCurve.t2y.toFixed(2)}%, spread=${data.yieldCurve.spread10y2y.toFixed(2)}%, ${data.yieldCurve.inverted ? "INVERTED" : "normal"}`);
   }
@@ -365,6 +389,8 @@ interface AnalystResponse {
 }
 
 // ─── Dynamic fallback: generate findings from real data without LLM ─
+// Each domain has its own reasoning logic that interprets the actual
+// data values rather than just formatting them with regex labels.
 
 function dynamicFallback(
   personaId: AnalystId,
@@ -374,51 +400,491 @@ function dynamicFallback(
   const persona = ANALYST_PERSONAS.find((p) => p.id === personaId)!;
   const seed = SEED_FINDINGS[personaId];
 
-  // If we have real data, build a dynamic summary from it
-  const hasRealData = !realDataContext.includes("temporarily unavailable") ||
-    realDataContext.split("\n").some((l) => !l.includes("temporarily unavailable"));
+  // Check if we have any real data at all
+  const dataLines = realDataContext.split("\n").filter(
+    (l) => !l.includes("temporarily unavailable") && l.trim().length > 0,
+  );
 
-  if (hasRealData) {
-    const dataLines = realDataContext.split("\n").filter((l) => !l.includes("temporarily unavailable"));
-    const summary = `${persona.name}: ${dataLines.slice(0, 2).join("; ")}`;
-    const details = `Real market data analysis (LLM unavailable, using structured fallback):\n${realDataContext}`;
-    const dataSources = ["Bitget public API", "bitget-signal MCP", ...dataLines.map((l) => l.split(":")[0])];
-
-    // Derive signals from real data
-    const signals: { label: string; value: string; direction: "bullish" | "bearish" | "neutral" }[] = [];
-    for (const line of dataLines.slice(0, 4)) {
-      const label = line.split(":")[0].trim();
-      const value = line.split(":").slice(1).join(":").trim().substring(0, 50);
-      const direction: "bullish" | "bearish" | "neutral" =
-        /positive|bullish|up|rising|greed|risk-on/i.test(value) ? "bullish" :
-        /negative|bearish|down|falling|fear|risk-off/i.test(value) ? "bearish" : "neutral";
-      signals.push({ label, value, direction });
-    }
-
+  if (dataLines.length === 0) {
+    // No real data: use seed as last resort
     return {
       analystId: personaId,
       analystName: persona.name,
       emoji: persona.emoji,
       status: "done",
-      summary,
-      details,
-      dataSources: dataSources.slice(0, 6),
-      confidence: 65,
-      signals: signals.slice(0, 6),
+      summary: seed.summary,
+      details: seed.details,
+      dataSources: seed.dataSources,
+      confidence: seed.confidence,
+      signals: seed.signals,
     };
   }
 
-  // Last resort: seed data
+  // Domain-specific reasoning
+  switch (personaId) {
+    case "macro":
+      return reasonMacroFallback(realDataContext, watchlist, persona, seed);
+    case "market-intel":
+      return reasonMarketIntelFallback(realDataContext, watchlist, persona, seed);
+    case "news":
+      return reasonNewsFallback(realDataContext, watchlist, persona, seed);
+    case "sentiment":
+      return reasonSentimentFallback(realDataContext, watchlist, persona, seed);
+    case "technical":
+      return reasonTechnicalFallback(realDataContext, watchlist, persona, seed);
+    default:
+      return {
+        analystId: personaId,
+        analystName: persona.name,
+        emoji: persona.emoji,
+        status: "done",
+        summary: seed.summary,
+        details: seed.details,
+        dataSources: seed.dataSources,
+        confidence: seed.confidence,
+        signals: seed.signals,
+      };
+  }
+}
+
+function reasonMacroFallback(
+  data: string,
+  watchlist: WatchlistItem[],
+  persona: { name: string; emoji: string },
+  seed: typeof SEED_FINDINGS["macro"],
+): AnalystFinding {
+  const signals: AnalystSignal[] = [];
+  const sources: string[] = [];
+  const details: string[] = [];
+
+  // BTC analysis (our most reliable macro proxy)
+  const btcMatch = data.match(/BTC: \$([\d,.]+) \(([+-]?[\d.]+)%/);
+  if (btcMatch) {
+    const btcPrice = parseFloat(btcMatch[1].replace(/,/g, ""));
+    const btcChange = parseFloat(btcMatch[2]);
+    const direction = btcChange > 2 ? "bullish" : btcChange < -2 ? "bearish" : "neutral";
+    signals.push({
+      label: "BTC 24h",
+      value: `${btcChange > 0 ? "+" : ""}${btcChange.toFixed(1)}%`,
+      direction,
+    });
+    sources.push("Bitget BTCUSDT ticker");
+    details.push(
+      `BTC at $${btcPrice.toLocaleString()} (${btcChange > 0 ? "+" : ""}${btcChange.toFixed(1)}% 24h), ` +
+      (btcChange > 2
+        ? "strong crypto rally supporting risk-on sentiment for rTokens."
+        : btcChange < -2
+          ? "crypto weakness creating headwind for rToken premiums."
+          : "BTC flat, neutral macro backdrop for rTokens."),
+    );
+  }
+
+  // ETH analysis
+  const ethMatch = data.match(/ETH: \$([\d,.]+) \(([+-]?[\d.]+)%/);
+  if (ethMatch) {
+    const ethChange = parseFloat(ethMatch[2]);
+    signals.push({
+      label: "ETH 24h",
+      value: `${ethChange > 0 ? "+" : ""}${ethChange.toFixed(1)}%`,
+      direction: ethChange > 2 ? "bullish" : ethChange < -2 ? "bearish" : "neutral",
+    });
+    sources.push("Bitget ETHUSDT ticker");
+  }
+
+  // Yield curve
+  const yieldMatch = data.match(/Yield curve:.*?(INVERTED|normal)/);
+  if (yieldMatch) {
+    const inverted = yieldMatch[1] === "INVERTED";
+    signals.push({
+      label: "Yield curve",
+      value: inverted ? "Inverted" : "Normal",
+      direction: inverted ? "bearish" : "neutral",
+    });
+    sources.push("US Treasury yield curve");
+    details.push(
+      inverted
+        ? "Yield curve inverted (10Y < 2Y), a classic recession warning that historically pressures risk assets."
+        : "Yield curve normal, no recession signal from rates.",
+    );
+  }
+
+  // DXY
+  const dxyMatch = data.match(/DXY: ([\d.]+)/);
+  if (dxyMatch) {
+    const dxy = parseFloat(dxyMatch[1]);
+    signals.push({
+      label: "DXY",
+      value: dxy.toFixed(2),
+      direction: dxy > 105 ? "bearish" : dxy < 100 ? "bullish" : "neutral",
+    });
+    sources.push("DXY dollar index");
+  }
+
+  // VIX
+  const vixMatch = data.match(/VIX: ([\d.]+)/);
+  if (vixMatch) {
+    const vix = parseFloat(vixMatch[1]);
+    signals.push({
+      label: "VIX",
+      value: vix.toFixed(1),
+      direction: vix > 25 ? "bearish" : vix < 15 ? "bullish" : "neutral",
+    });
+    sources.push("VIX volatility index");
+    details.push(
+      vix > 25
+        ? `VIX elevated at ${vix.toFixed(1)}, indicating fear in traditional markets.`
+        : vix < 15
+          ? `VIX low at ${vix.toFixed(1)}, complacency in traditional markets.`
+          : `VIX at ${vix.toFixed(1)}, normal volatility regime.`,
+    );
+  }
+
+  // Determine overall regime
+  const bullCount = signals.filter((s) => s.direction === "bullish").length;
+  const bearCount = signals.filter((s) => s.direction === "bearish").length;
+  const regime = bullCount > bearCount ? "risk-on" : bearCount > bullCount ? "risk-off" : "mixed";
+
+  const summary = signals.length > 0
+    ? `Macro backdrop is ${regime}: ${signals.slice(0, 2).map((s) => `${s.label} ${s.value}`).join(", ")}.`
+    : "Macro data partially available, limited signal strength.";
+
   return {
-    analystId: personaId,
+    analystId: "macro",
     analystName: persona.name,
     emoji: persona.emoji,
     status: "done",
-    summary: seed.summary,
-    details: seed.details,
-    dataSources: seed.dataSources,
-    confidence: seed.confidence,
-    signals: seed.signals,
+    summary,
+    details: details.length > 0 ? details.join(" ") : `Real market data retrieved. ${data}`,
+    dataSources: sources.length > 0 ? sources.slice(0, 6) : ["Bitget public API"],
+    confidence: signals.length > 2 ? 72 : 55,
+    signals: signals.slice(0, 6),
+  };
+}
+
+function reasonMarketIntelFallback(
+  data: string,
+  watchlist: WatchlistItem[],
+  persona: { name: string; emoji: string },
+  seed: typeof SEED_FINDINGS["market-intel"],
+): AnalystFinding {
+  const signals: AnalystSignal[] = [];
+  const sources: string[] = [];
+  const details: string[] = [];
+
+  // Funding rates
+  const fundingMatches = [...data.matchAll(/(\w+)=(?:rate=)?([-\d.]+)%\/(\d+)h/g)];
+  for (const m of fundingMatches) {
+    const sym = m[1];
+    const rate = parseFloat(m[2]);
+    const direction = rate > 0.01 ? "bullish" : rate < -0.01 ? "bearish" : "neutral";
+    signals.push({
+      label: `${sym} funding`,
+      value: `${rate > 0 ? "+" : ""}${(rate * 100).toFixed(4)}%`,
+      direction,
+    });
+    sources.push(`Bitget ${sym}USDT funding rate`);
+    details.push(
+      rate > 0.01
+        ? `${sym} funding rate positive at ${(rate * 100).toFixed(4)}%, longs paying shorts, bullish positioning.`
+        : rate < -0.01
+          ? `${sym} funding rate negative at ${(rate * 100).toFixed(4)}%, shorts paying longs, bearish positioning.`
+          : `${sym} funding rate near zero, balanced positioning.`,
+    );
+  }
+
+  // Open interest
+  const oiMatches = [...data.matchAll(/Open interest: ([\w, ]+?)(?:=|: )([\d.]+)/g)];
+  for (const m of oiMatches) {
+    const symbols = m[1].trim();
+    const oi = parseFloat(m[2]);
+    signals.push({
+      label: `${symbols} OI`,
+      value: oi.toFixed(0),
+      direction: "neutral",
+    });
+    sources.push(`Bitget ${symbols} open interest`);
+  }
+
+  // Long/short ratios
+  const lsMatches = [...data.matchAll(/(\w+)=([\d.]+) \(L:(\d+)%\/S:(\d+)%\)/g)];
+  for (const m of lsMatches) {
+    const sym = m[1];
+    const ratio = parseFloat(m[2]);
+    const longPct = parseInt(m[3]);
+    const shortPct = parseInt(m[4]);
+    const direction = ratio > 1.5 ? "bearish" : ratio < 0.67 ? "bullish" : "neutral";
+    signals.push({
+      label: `${sym} L/S`,
+      value: `${ratio.toFixed(2)} (${longPct}/${shortPct})`,
+      direction,
+    });
+    sources.push(`Bitget ${sym}USDT long/short ratio`);
+    details.push(
+      ratio > 1.5
+        ? `${sym} long/short ratio at ${ratio.toFixed(2)}, longs crowded, squeeze risk if price reverses.`
+        : ratio < 0.67
+          ? `${sym} long/short ratio at ${ratio.toFixed(2)}, shorts crowded, short squeeze fuel.`
+          : `${sym} long/short balanced at ${ratio.toFixed(2)}.`,
+    );
+  }
+
+  // Watchlist price action context
+  const topGainer = [...watchlist].sort((a, b) => b.overnightChangePct - a.overnightChangePct)[0];
+  const topLoser = [...watchlist].sort((a, b) => a.overnightChangePct - b.overnightChangePct)[0];
+  if (topGainer && topGainer.overnightChangePct > 0) {
+    details.push(`${topGainer.symbol} led the watchlist at +${topGainer.overnightChangePct.toFixed(1)}%.`);
+  }
+  if (topLoser && topLoser.overnightChangePct < 0) {
+    details.push(`${topLoser.symbol} was the weakest at ${topLoser.overnightChangePct.toFixed(1)}%.`);
+  }
+
+  const summary = signals.length > 0
+    ? `${signals.slice(0, 2).map((s) => `${s.label}: ${s.value}`).join("; ")}.`
+    : "Market structure data partially available.";
+
+  return {
+    analystId: "market-intel",
+    analystName: persona.name,
+    emoji: persona.emoji,
+    status: "done",
+    summary,
+    details: details.length > 0 ? details.join(" ") : `Real market data: ${data}`,
+    dataSources: sources.length > 0 ? sources.slice(0, 6) : ["Bitget public API"],
+    confidence: signals.length > 2 ? 70 : 50,
+    signals: signals.slice(0, 6),
+  };
+}
+
+function reasonNewsFallback(
+  data: string,
+  watchlist: WatchlistItem[],
+  persona: { name: string; emoji: string },
+  seed: typeof SEED_FINDINGS["news"],
+): AnalystFinding {
+  const signals: AnalystSignal[] = [];
+  const sources: string[] = [];
+  const details: string[] = [];
+
+  // Parse headlines from news_feed format
+  const headlineMatches = [...data.matchAll(/\d+\.\s+(.+?)\s+\((\w+)\)/g)];
+  if (headlineMatches.length > 0) {
+    for (const m of headlineMatches.slice(0, 5)) {
+      const title = m[1];
+      const source = m[2];
+      sources.push(`${source} RSS feed`);
+
+      // Determine direction from headline keywords
+      const direction: "bullish" | "bearish" | "neutral" =
+        /surge|rally|jump|beat|gain|soar|record|approval|adopt|bullish|upgrade/i.test(title)
+          ? "bullish"
+          : /crash|plunge|drop|miss|fall|hack|ban|lawsuit|bearish|downgrade|fear|sell/i.test(title)
+            ? "bearish"
+            : "neutral";
+
+      signals.push({
+        label: source,
+        value: title.substring(0, 60),
+        direction,
+      });
+    }
+    details.push(`Top headlines: ${headlineMatches.slice(0, 3).map((m) => m[1]).join("; ")}.`);
+  }
+
+  // Check if any headlines mention watchlist symbols
+  for (const w of watchlist) {
+    const symRegex = new RegExp(w.underlying, "i");
+    if (symRegex.test(data)) {
+      details.push(`${w.symbol} (${w.underlying}) mentioned in overnight news.`);
+    }
+  }
+
+  const summary = headlineMatches.length > 0
+    ? `${headlineMatches.length} headlines tracked. Top: ${headlineMatches[0][1].substring(0, 60)}.`
+    : "News feeds returned no headlines for this period.";
+
+  return {
+    analystId: "news",
+    analystName: persona.name,
+    emoji: persona.emoji,
+    status: "done",
+    summary,
+    details: details.length > 0 ? details.join(" ") : "No major overnight news detected from RSS feeds.",
+    dataSources: sources.length > 0 ? sources.slice(0, 6) : ["RSS news feeds (via bitget-signal MCP)"],
+    confidence: headlineMatches.length > 2 ? 68 : 40,
+    signals: signals.slice(0, 6),
+  };
+}
+
+function reasonSentimentFallback(
+  data: string,
+  watchlist: WatchlistItem[],
+  persona: { name: string; emoji: string },
+  seed: typeof SEED_FINDINGS["sentiment"],
+): AnalystFinding {
+  const signals: AnalystSignal[] = [];
+  const sources: string[] = [];
+  const details: string[] = [];
+
+  // Fear & Greed Index
+  const fgMatch = data.match(/Fear & Greed Index: (\d+) \((\w+)\)/);
+  if (fgMatch) {
+    const value = parseInt(fgMatch[1]);
+    const classification = fgMatch[2];
+    const direction: "bullish" | "bearish" | "neutral" =
+      value < 25 ? "bullish" : value > 75 ? "bearish" : "neutral";
+    signals.push({
+      label: "Fear & Greed",
+      value: `${value} (${classification})`,
+      direction,
+    });
+    sources.push("alternative.me Fear & Greed Index");
+    details.push(
+      value < 25
+        ? `Fear & Greed at ${value} (Extreme Fear), contrarian buy signal.`
+        : value > 75
+          ? `Fear & Greed at ${value} (Extreme Greed), caution zone.`
+          : `Fear & Greed at ${value} (${classification}), neutral sentiment.`,
+    );
+  }
+
+  // Taker ratios
+  const takerMatches = [...data.matchAll(/(\w+) buy\/sell=([\d.]+)\/([\d.]+)/g)];
+  for (const m of takerMatches) {
+    const sym = m[1];
+    const buy = parseFloat(m[2]);
+    const sell = parseFloat(m[3]);
+    const ratio = buy / sell;
+    const direction = ratio > 1.2 ? "bullish" : ratio < 0.8 ? "bearish" : "neutral";
+    signals.push({
+      label: `${sym} taker ratio`,
+      value: `${buy.toFixed(2)}/${sell.toFixed(2)}`,
+      direction,
+    });
+    sources.push(`Bitget ${sym}USDT taker ratio`);
+    details.push(
+      ratio > 1.2
+        ? `${sym} aggressive buying (taker ratio ${ratio.toFixed(2)}), bullish order flow.`
+        : ratio < 0.8
+          ? `${sym} aggressive selling (taker ratio ${ratio.toFixed(2)}), bearish order flow.`
+          : `${sym} balanced order flow.`,
+    );
+  }
+
+  // Reddit trending
+  const redditMatch = data.match(/Reddit trending: (.+)/);
+  if (redditMatch) {
+    sources.push("Reddit crypto trending (via bitget-signal MCP)");
+    details.push(`Reddit trending: ${redditMatch[1].substring(0, 100)}.`);
+  }
+
+  const summary = signals.length > 0
+    ? `${signals.slice(0, 2).map((s) => `${s.label}: ${s.value}`).join("; ")}.`
+    : "Sentiment data partially available.";
+
+  return {
+    analystId: "sentiment",
+    analystName: persona.name,
+    emoji: persona.emoji,
+    status: "done",
+    summary,
+    details: details.length > 0 ? details.join(" ") : `Real sentiment data: ${data}`,
+    dataSources: sources.length > 0 ? sources.slice(0, 6) : ["Bitget public API"],
+    confidence: signals.length > 1 ? 68 : 45,
+    signals: signals.slice(0, 6),
+  };
+}
+
+function reasonTechnicalFallback(
+  data: string,
+  watchlist: WatchlistItem[],
+  persona: { name: string; emoji: string },
+  seed: typeof SEED_FINDINGS["technical"],
+): AnalystFinding {
+  const signals: AnalystSignal[] = [];
+  const sources: string[] = [];
+  const details: string[] = [];
+
+  // Parse technical summaries: "rNVDA: price=132.4, RSI=45.2 (neutral), MACD hist=0.5 (bullish), ..."
+  const techMatches = [...data.matchAll(/(\w+): price=([\d.]+), RSI=([\d.]+) \((\w+)\), MACD hist=([-\d.]+) \((\w+)\), EMA20=([\d.]+) vs EMA50=([\d.]+) \((\w+)\).*?overall=(\w+)/g)];
+  for (const m of techMatches) {
+    const sym = m[1];
+    const price = parseFloat(m[2]);
+    const rsi = parseFloat(m[3]);
+    const rsiSignal = m[4];
+    const macdHist = parseFloat(m[5]);
+    const macdSignal = m[6];
+    const ema20 = parseFloat(m[7]);
+    const ema50 = parseFloat(m[8]);
+    const emaTrend = m[9];
+    const overall = m[10];
+
+    sources.push(`Bitget ${sym}USDT candles (200x 1h)`);
+
+    signals.push({
+      label: `${sym} RSI`,
+      value: `${rsi} (${rsiSignal})`,
+      direction: rsiSignal === "oversold" ? "bullish" : rsiSignal === "overbought" ? "bearish" : "neutral",
+    });
+
+    signals.push({
+      label: `${sym} MACD`,
+      value: `hist=${macdHist}`,
+      direction: macdSignal as "bullish" | "bearish" | "neutral",
+    });
+
+    signals.push({
+      label: `${sym} EMA trend`,
+      value: `${emaTrend}`,
+      direction: emaTrend as "bullish" | "bearish" | "neutral",
+    });
+
+    signals.push({
+      label: `${sym} overall`,
+      value: overall,
+      direction: overall as "bullish" | "bearish" | "neutral",
+    });
+
+    details.push(
+      `${sym} at $${price}: RSI ${rsi} (${rsiSignal}), MACD ${macdSignal} (hist ${macdHist}), ` +
+      `EMA20 ${ema20} vs EMA50 ${ema50} (${emaTrend}), overall ${overall}.`,
+    );
+  }
+
+  // Support/resistance
+  const srMatches = [...data.matchAll(/support=([\d.]+) resistance=([\d.]+)/g)];
+  for (const m of srMatches) {
+    const support = parseFloat(m[1]);
+    const resistance = parseFloat(m[2]);
+    if (support > 0 && resistance > 0) {
+      details.push(`Key levels: support $${support}, resistance $${resistance}.`);
+    }
+  }
+
+  // Volume trend
+  const volMatches = [...data.matchAll(/volume (\w+) \(avg=(\d+)\)/g)];
+  for (const m of volMatches) {
+    const trend = m[1];
+    if (trend === "increasing") {
+      details.push("Volume increasing, confirming price action.");
+    } else if (trend === "decreasing") {
+      details.push("Volume decreasing, price action may lack conviction.");
+    }
+  }
+
+  const summary = techMatches.length > 0
+    ? `${techMatches.length} symbols analyzed. ${signals.filter((s) => s.direction === "bullish").length} bullish, ${signals.filter((s) => s.direction === "bearish").length} bearish signals.`
+    : "Technical data partially available.";
+
+  return {
+    analystId: "technical",
+    analystName: persona.name,
+    emoji: persona.emoji,
+    status: "done",
+    summary,
+    details: details.length > 0 ? details.join(" ") : `Real technical data: ${data}`,
+    dataSources: sources.length > 0 ? sources.slice(0, 6) : ["Bitget public API"],
+    confidence: techMatches.length > 0 ? 75 : 45,
+    signals: signals.slice(0, 6),
   };
 }
 
@@ -578,59 +1044,110 @@ function dynamicSynthesisFallback(
   watchlist: WatchlistItem[],
   findings: AnalystFinding[],
 ): Briefing {
-  // Build a dynamic briefing from the analyst findings
-  const bullish = findings.filter((f) =>
-    f.signals.some((s) => s.direction === "bullish"),
-  );
-  const bearish = findings.filter((f) =>
-    f.signals.some((s) => s.direction === "bearish"),
-  );
+  // Count bullish vs bearish signals across all analysts
+  const allSignals = findings.flatMap((f) => f.signals);
+  const bullCount = allSignals.filter((s) => s.direction === "bullish").length;
+  const bearCount = allSignals.filter((s) => s.direction === "bearish").length;
+  const neutralCount = allSignals.filter((s) => s.direction === "neutral").length;
 
-  const regime = bullish.length > bearish.length
+  const regime = bullCount > bearCount + neutralCount
     ? "Risk-on overnight"
-    : bearish.length > bullish.length
+    : bearCount > bullCount + neutralCount
       ? "Risk-off overnight"
       : "Mixed overnight";
 
-  const summary = findings
-    .map((f) => `${f.analystName}: ${f.summary}`)
-    .join(" ");
+  // Build executive summary from the strongest signals
+  const topGainer = [...watchlist].sort((a, b) => b.overnightChangePct - a.overnightChangePct)[0];
+  const topLoser = [...watchlist].sort((a, b) => a.overnightChangePct - b.overnightChangePct)[0];
 
-  // Build action items from findings
+  const summaryParts: string[] = [];
+  if (topGainer && topGainer.overnightChangePct > 0) {
+    summaryParts.push(`${topGainer.symbol} led overnight at +${topGainer.overnightChangePct.toFixed(1)}%`);
+  }
+  if (topLoser && topLoser.overnightChangePct < 0) {
+    summaryParts.push(`${topLoser.symbol} lagged at ${topLoser.overnightChangePct.toFixed(1)}%`);
+  }
+  summaryParts.push(`${bullCount} bullish vs ${bearCount} bearish signals across ${findings.length} analysts`);
+  if (regime === "Risk-on overnight") {
+    summaryParts.push("Overall risk-on regime");
+  } else if (regime === "Risk-off overnight") {
+    summaryParts.push("Overall risk-off regime");
+  } else {
+    summaryParts.push("Mixed signals, no clear directional bias");
+  }
+
+  const executiveSummary = summaryParts.join(". ") + ".";
+
+  // Build action items: rank watchlist by signal strength
   const validIds: AnalystId[] = ["macro", "market-intel", "news", "sentiment", "technical"];
-  const actionItems = watchlist.slice(0, 3).map((w, i) => {
+
+  const ranked = watchlist.map((w) => {
+    // Find signals that mention this symbol or its underlying
     const relatedFindings = findings.filter((f) =>
-      f.signals.some((s) => s.value.includes(w.symbol) || s.label.includes(w.underlying)),
+      f.signals.some((s) =>
+        s.label.includes(w.symbol) ||
+        s.label.includes(w.underlying) ||
+        s.value.includes(w.symbol) ||
+        s.value.includes(w.underlying),
+      ),
     );
-    const bearishCount = relatedFindings.filter((f) =>
-      f.signals.some((s) => s.direction === "bearish"),
+
+    const symBearish = relatedFindings.flatMap((f) => f.signals).filter((s) =>
+      (s.label.includes(w.symbol) || s.label.includes(w.underlying)) && s.direction === "bearish",
     ).length;
-    const bullishCount = relatedFindings.filter((f) =>
-      f.signals.some((s) => s.direction === "bullish"),
+    const symBullish = relatedFindings.flatMap((f) => f.signals).filter((s) =>
+      (s.label.includes(w.symbol) || s.label.includes(w.underlying)) && s.direction === "bullish",
     ).length;
 
-    const action = bearishCount > bullishCount
-      ? `Consider reducing ${w.symbol}`
-      : bullishCount > bearishCount
-        ? `Watch ${w.symbol} for upside`
-        : `Hold ${w.symbol}, monitor for changes`;
+    // Score: bearish signals make it more urgent (rank higher)
+    const urgencyScore = symBearish * 2 + Math.abs(w.overnightChangePct) * 0.5;
+
+    return { w, relatedFindings, symBearish, symBullish, urgencyScore };
+  }).sort((a, b) => b.urgencyScore - a.urgencyScore);
+
+  const actionItems = ranked.slice(0, 3).map((r, i) => {
+    const { w, relatedFindings, symBearish, symBullish } = r;
+
+    let action: string;
+    let riskLevel: "low" | "medium" | "high";
+
+    if (symBearish > symBullish && symBearish > 0) {
+      action = `Consider reducing ${w.symbol}`;
+      riskLevel = symBearish > 2 ? "high" : "medium";
+    } else if (symBullish > symBearish && symBullish > 0) {
+      action = `Watch ${w.symbol} for upside momentum`;
+      riskLevel = "low";
+    } else if (w.overnightChangePct < -3) {
+      action = `Monitor ${w.symbol} for stabilization`;
+      riskLevel = "medium";
+    } else if (w.overnightChangePct > 3) {
+      action = `Hold ${w.symbol}, watch for profit-taking`;
+      riskLevel = "low";
+    } else {
+      action = `Hold ${w.symbol}, no urgent signals`;
+      riskLevel = "low";
+    }
+
+    const rationale = relatedFindings.length > 0
+      ? `${relatedFindings.length} analysts flagged ${w.symbol}: ${symBearish} bearish, ${symBullish} bullish signals. ${w.overnightChangePct > 0 ? "+" : ""}${w.overnightChangePct.toFixed(1)}% overnight.`
+      : `${w.symbol} moved ${w.overnightChangePct > 0 ? "+" : ""}${w.overnightChangePct.toFixed(1)}% overnight with no specific analyst flags.`;
 
     return {
       id: `ai-${i + 1}`,
       rank: i + 1,
       symbol: w.symbol,
       action,
-      rationale: `${relatedFindings.length} analysts flagged ${w.symbol}. ${bearishCount} bearish, ${bullishCount} bullish signals.`,
+      rationale,
       analystIds: relatedFindings.map((f) => f.analystId).filter((id) => validIds.includes(id)),
       confidence: relatedFindings.length > 0
         ? Math.round(relatedFindings.reduce((s, f) => s + f.confidence, 0) / relatedFindings.length)
         : 50,
-      riskLevel: bearishCount > bullishCount ? "high" as const : "medium" as const,
+      riskLevel,
     };
   });
 
   return {
-    executiveSummary: summary.substring(0, 500),
+    executiveSummary,
     marketRegime: regime,
     actionItems,
     generatedAt: new Date().toISOString(),
