@@ -576,7 +576,7 @@ export function Workbench() {
             e.preventDefault();
             runBriefing(prompt);
           }}
-          className="flex flex-col gap-3 sm:flex-row sm:items-end gap-3"
+          className="flex flex-col sm:flex-row sm:items-end gap-3"
         >
           <div className="flex-1">
             <label htmlFor="prompt" className="sr-only">
@@ -587,7 +587,7 @@ export function Workbench() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="What happened while I slept?"
-              className="w-full resize-none rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full min-h-24 resize-none rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={2}
               style={{ fontSize: "16px" }}
               disabled={isRunning}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Moon, Sparkles, ArrowRight, TrendingUp, Brain, Zap } from "lucide-react";
+import { Moon, ArrowRight, ArrowLeft, TrendingUp, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 
@@ -63,7 +63,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
       {/* CTA: Accent Pill (lime, rationed) + Ghost Outline */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <Button size="lg" onClick={onTryDemo} className="w-full sm:w-auto">
-          Try the demo
+          Open app
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>
         <a
@@ -192,11 +192,17 @@ export function LandingShell({
             <Moon className="h-5 w-5 text-primary" aria-hidden="true" />
             <span className="text-sm font-medium tracking-tight text-foreground">Overnight Brief</span>
           </button>
-          <div className="flex items-center gap-2 text-sm font-medium tracking-tight text-foreground/80">
-            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            <span className="hidden sm:inline">AI Trading Desk · Bitget Hackathon S2</span>
-            <span className="sm:hidden">Bitget S2</span>
-          </div>
+          {showApp ? (
+            <Button variant="ghost" size="sm" onClick={goToHero}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back
+            </Button>
+          ) : (
+            <Button size="sm" onClick={goToApp}>
+              Open app
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
         </div>
       </header>
 
@@ -225,7 +231,7 @@ export function LandingShell({
         )}
         aria-hidden={!showApp}
       >
-        <main className="flex-1 border py-8 sm:py-12">
+        <main className="flex-1 py-8 sm:py-12">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-8">
               <div>

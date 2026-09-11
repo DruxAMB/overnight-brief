@@ -3,9 +3,15 @@ import type { WatchlistItem } from "./types";
 import { SEED_WATCHLIST } from "./seed-data";
 
 // ─── Bitget market data adapter ───────────────────────────────────
-// Fetches real rToken ticker data from Bitget's public market endpoint.
-// No API key required: market data is public.
+// Fetches real rToken market data from Bitget's public API endpoints.
+// No API key required: all market data is public.
 // Falls back to seed data if the API is unreachable.
+//
+// Data sources (all public, no auth):
+//   1. Tickers: price, 24h change, volume (spot)
+//   2. Candles: OHLCV for technical analysis (spot)
+//   3. Funding rates: perp funding rate (futures)
+//   4. Open interest: perp OI (futures)
 
 let client: BitgetRestClient | null = null;
 
@@ -27,15 +33,42 @@ const RTOKEN_SYMBOLS = SEED_WATCHLIST.map((w) => ({
 
 interface BitgetTicker {
   symbol: string;
-  lastPr: string;       // last price
-  high24h: string;      // 24h high
-  low24h: string;      // 24h low
-  change24h: string;   // 24h change (absolute)
-  change24hPct: string; // 24h change percentage
-  baseVolume: string;   // base volume
-  quoteVolume: string;  // quote volume (USDT)
+  lastPr: string;
+  high24h: string;
+  low24h: string;
+  change24h: string;
+  change24hPct: string;
+  baseVolume: string;
+  quoteVolume: string;
   bidPr: string;
   askPr: string;
+}
+
+/** A single OHLCV candle. */
+export interface Candle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/** Funding rate data for a perpetual contract. */
+export interface FundingRate {
+  symbol: string;
+  fundingRate: number;
+  fundingRateInterval: number;
+  nextUpdate: number;
+  minFundingRate: number;
+  maxFundingRate: number;
+}
+
+/** Open interest data. */
+export interface OpenInterest {
+  symbol: string;
+  size: number;
+  timestamp: number;
 }
 
 /**
@@ -61,7 +94,6 @@ export async function fetchWatchlist(): Promise<{
 
         const tickers = (result.data as { data?: BitgetTicker[] }).data;
         if (!tickers || tickers.length === 0) {
-          // Symbol not found: use seed for this one
           const seed = SEED_WATCHLIST.find((w) => w.symbol === rt.symbol);
           if (seed) items.push(seed);
           continue;
@@ -72,11 +104,6 @@ export async function fetchWatchlist(): Promise<{
         const quoteVolume = parseFloat(t.quoteVolume) || 0;
         const lastPrice = parseFloat(t.lastPr) || 0;
 
-        // Premium to NAV: we don't have NAV from the ticker API directly.
-        // For rTokens, the "premium" is the spread between the rToken price
-        // and the underlying stock price. We approximate this as 0 for now
-        // since we don't have a separate stock price feed. In production,
-        // this would come from a stock price API or a dedicated rToken NAV endpoint.
         const premiumToNavPct = 0;
 
         items.push({
@@ -90,7 +117,6 @@ export async function fetchWatchlist(): Promise<{
           positionSize: rt.positionSize,
         });
       } catch (err) {
-        // Individual symbol failed: use seed for this one
         console.error(`[Bitget] Failed to fetch ${rt.symbol}:`, err);
         const seed = SEED_WATCHLIST.find((w) => w.symbol === rt.symbol);
         if (seed) items.push(seed);
@@ -150,5 +176,155 @@ export async function fetchSingleTicker(symbol: string): Promise<{
     console.error(`[Bitget] Failed to fetch ${symbol}:`, msg);
     const seed = SEED_WATCHLIST.find((w) => w.symbol === symbol);
     return { item: seed || null, isLive: false, error: msg };
+  }
+}
+
+/**
+ * Fetch OHLCV candles from Bitget's public spot API.
+ * Used by the Technical Analysis analyst for indicator calculations.
+ */
+export async function fetchCandles(
+  symbol: string,
+  granularity = "1h",
+  limit = 200,
+): Promise<{ candles: Candle[]; isLive: boolean; error?: string }> {
+  try {
+    const bitgetSymbol = `${symbol}USDT`;
+    const url = `https://api.bitget.com/api/v2/spot/market/candles?symbol=${bitgetSymbol}&granularity=${granularity}&limit=${limit}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!r.ok) throw new Error(`Bitget candles API ${r.status}`);
+
+    const data = await r.json() as {
+      code: string;
+      msg: string;
+      data: string[][];
+    };
+
+    if (data.code !== "00000" || !data.data) {
+      throw new Error(`Bitget API error: ${data.msg}`);
+    }
+
+    // Bitget returns candles in descending order (newest first).
+    // Each row: [timestamp, open, high, low, close, volume, quoteVol, amount]
+    const candles: Candle[] = data.data
+      .map((row) => ({
+        timestamp: parseInt(row[0]),
+        open: parseFloat(row[1]),
+        high: parseFloat(row[2]),
+        low: parseFloat(row[3]),
+        close: parseFloat(row[4]),
+        volume: parseFloat(row[5]),
+      }))
+      .reverse(); // oldest first for indicator calculations
+
+    return { candles, isLive: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[Bitget] Candles fetch failed for ${symbol}:`, msg);
+    return { candles: [], isLive: false, error: msg };
+  }
+}
+
+/**
+ * Fetch funding rate for a perpetual contract from Bitget's public API.
+ * Used by the Sentiment Analyst for positioning analysis.
+ */
+export async function fetchFundingRate(
+  symbol: string,
+): Promise<{ fundingRate: FundingRate | null; isLive: boolean; error?: string }> {
+  try {
+    const bitgetSymbol = `${symbol}USDT`;
+    const url = `https://api.bitget.com/api/v2/mix/market/current-fund-rate?symbol=${bitgetSymbol}&productType=USDT-FUTURES`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!r.ok) throw new Error(`Bitget funding rate API ${r.status}`);
+
+    const data = await r.json() as {
+      code: string;
+      msg: string;
+      data: Array<{
+        symbol: string;
+        fundingRate: string;
+        fundingRateInterval: string;
+        nextUpdate: string;
+        minFundingRate: string;
+        maxFundingRate: string;
+      }>;
+    };
+
+    if (data.code !== "00000" || !data.data || data.data.length === 0) {
+      throw new Error(`Bitget API error: ${data.msg}`);
+    }
+
+    const d = data.data[0];
+    const fundingRate: FundingRate = {
+      symbol: d.symbol,
+      fundingRate: parseFloat(d.fundingRate),
+      fundingRateInterval: parseInt(d.fundingRateInterval),
+      nextUpdate: parseInt(d.nextUpdate),
+      minFundingRate: parseFloat(d.minFundingRate),
+      maxFundingRate: parseFloat(d.maxFundingRate),
+    };
+
+    return { fundingRate, isLive: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[Bitget] Funding rate fetch failed for ${symbol}:`, msg);
+    return { fundingRate: null, isLive: false, error: msg };
+  }
+}
+
+/**
+ * Fetch open interest for a perpetual contract from Bitget's public API.
+ * Used by the Market Intel analyst for market structure analysis.
+ */
+export async function fetchOpenInterest(
+  symbol: string,
+): Promise<{ openInterest: OpenInterest | null; isLive: boolean; error?: string }> {
+  try {
+    const bitgetSymbol = `${symbol}USDT`;
+    const url = `https://api.bitget.com/api/v2/mix/market/open-interest?symbol=${bitgetSymbol}&productType=USDT-FUTURES`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!r.ok) throw new Error(`Bitget OI API ${r.status}`);
+
+    const data = await r.json() as {
+      code: string;
+      msg: string;
+      data: {
+        openInterestList: Array<{ symbol: string; size: string }>;
+        ts: string;
+      };
+    };
+
+    if (data.code !== "00000" || !data.data?.openInterestList?.length) {
+      throw new Error(`Bitget API error: ${data.msg}`);
+    }
+
+    const oi = data.data.openInterestList[0];
+    const openInterest: OpenInterest = {
+      symbol: oi.symbol,
+      size: parseFloat(oi.size),
+      timestamp: parseInt(data.data.ts),
+    };
+
+    return { openInterest, isLive: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[Bitget] Open interest fetch failed for ${symbol}:`, msg);
+    return { openInterest: null, isLive: false, error: msg };
   }
 }
