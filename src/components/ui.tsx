@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Card surface — Ground Iron (#181818), 8px radius, Circuit Border hairline, no shadow. */
+/** Card surface: Ground Iron (#181818), 8px radius, Circuit Border hairline, no shadow. */
 export function Card({ children, className, as: As = "div" }: { children: React.ReactNode; className?: string; as?: React.ElementType }) {
   return (
     <As
@@ -14,7 +14,7 @@ export function Card({ children, className, as: As = "div" }: { children: React.
   );
 }
 
-/** Badge — status pill. Modal uses green palette, no blue/purple. */
+/** Badge: status pill. Modal uses green palette, no blue/purple. */
 export function Badge({ children, variant = "default", className }: { children: React.ReactNode; variant?: "default" | "success" | "warning" | "destructive" | "info"; className?: string }) {
   const variantClass = {
     default: "bg-muted text-muted-foreground border border-border",
@@ -30,7 +30,7 @@ export function Badge({ children, variant = "default", className }: { children: 
   );
 }
 
-/** Button — Modal's component specs.
+/** Button: Modal's component specs.
  *  Primary = Lime Pulse pill (rationed: one per viewport).
  *  Secondary = Ground Iron fill with Phosphor White border.
  *  Ghost = transparent with Circuit Border. */
@@ -42,11 +42,11 @@ export function Button({ children, variant = "primary", size = "md", className, 
   disabled?: boolean;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const variantClass = {
-    // Accent Pill — Lime Pulse fill, dark text, full pill radius
+    // Accent Pill: Lime Pulse fill, dark text, full pill radius
     primary: "bg-primary text-primary-foreground rounded-full hover:bg-primary/90",
-    // Primary Filled — Ground Iron fill, Phosphor White text + border
+    // Primary Filled: Ground Iron fill, Phosphor White text + border
     secondary: "bg-card text-foreground border border-foreground rounded-lg hover:bg-muted",
-    // Ghost Outline — transparent, Circuit Border, Fern Link text
+    // Ghost Outline: transparent, Circuit Border, Fern Link text
     ghost: "text-muted-foreground border border-border rounded-lg hover:bg-muted",
     destructive: "bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90",
   }[variant];
@@ -73,12 +73,12 @@ export function Button({ children, variant = "primary", size = "md", className, 
   );
 }
 
-/** Skeleton — loading placeholder matching Ground Iron surface. */
+/** Skeleton: loading placeholder matching Ground Iron surface. */
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded-lg bg-muted", className)} />;
 }
 
-/** Empty state — Sage 60 text on void canvas. */
+/** Empty state: Sage 60 text on void canvas. */
 export function EmptyState({ icon, title, description, action }: { icon?: React.ReactNode; title: string; description: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">

@@ -21,7 +21,7 @@ export function hasLLMKey(): boolean {
 }
 
 // ─── Prompt sanitization ──────────────────────────────────────────
-// Mitigate prompt injection — adapted from Agentropolis's pattern.
+// Mitigate prompt injection: adapted from Agentropolis's pattern.
 function sanitizePrompt(prompt: string): string {
   let cleaned = prompt
     .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
@@ -253,7 +253,7 @@ Create a synthesized briefing. Respond with valid JSON only:
     {
       "symbol": "rTSLA",
       "action": "Consider reducing rTSLA",
-      "rationale": "Why — cite which analysts flagged it",
+      "rationale": "Why: cite which analysts flagged it",
       "analystIds": ["news", "market-intel", "technical"],
       "confidence": 0-100,
       "riskLevel": "low|medium|high"
@@ -265,8 +265,8 @@ Rules:
 - 3 action items, ranked by importance (most urgent first)
 - analystIds must be from: macro, market-intel, news, sentiment, technical
 - Only include analysts that actually flagged the signal
-- Be honest about uncertainty — if analysts disagree, say so
-- Never recommend executing a trade — only "consider", "watch", "monitor", "hold"`,
+- Be honest about uncertainty: if analysts disagree, say so
+- Never recommend executing a trade: only "consider", "watch", "monitor", "hold"`,
     },
   ];
 }

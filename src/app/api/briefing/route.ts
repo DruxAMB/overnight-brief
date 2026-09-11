@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         // Signal data source to the client
         send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });
 
-        // Run analysts sequentially — each panel lights up one by one.
+        // Run analysts sequentially: each panel lights up one by one.
         // This is the money shot: watching 5 panels activate in sequence.
         const findings = [];
 

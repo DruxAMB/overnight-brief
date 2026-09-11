@@ -5,7 +5,7 @@ import { Moon, Sparkles, ArrowRight, TrendingUp, Brain, Zap } from "lucide-react
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 
-// ─── Tech marquee items — actual project logos (inline SVG) ────────
+// ─── Tech marquee items: actual project logos (inline SVG) ────────
 const TECH_MARQUEE_ITEMS = [
   {
     name: "Bitget",
@@ -44,12 +44,12 @@ const TECH_MARQUEE_ITEMS = [
 function Hero({ onTryDemo }: { onTryDemo: () => void }) {
   return (
     <div className="flex flex-col items-center gap-8 py-12 sm:py-20 text-center">
-      {/* Eyebrow label — Moss 70, uppercase, tracked */}
+      {/* Eyebrow label: Moss 70, uppercase, tracked */}
       <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-info">
         <span className="shimmer-text">AI Trading Desk · Bitget Hackathon S2</span>
       </div>
 
-      {/* Headline — display font, Phosphor White, tight tracking */}
+      {/* Headline: display font, Phosphor White, tight tracking */}
       <div className="max-w-3xl">
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-foreground leading-[1.05]">
           Your overnight research desk for tokenized markets
@@ -60,7 +60,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
         </p>
       </div>
 
-      {/* CTA — Accent Pill (lime, rationed) + Ghost Outline */}
+      {/* CTA: Accent Pill (lime, rationed) + Ghost Outline */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
         <Button size="lg" onClick={onTryDemo} className="w-full sm:w-auto">
           Try the demo
@@ -78,7 +78,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
         </a>
       </div>
 
-      {/* How it works — 3-column grid, Ground Iron cards */}
+      {/* How it works: 3-column grid, Ground Iron cards */}
       <div className="mt-8 w-full max-w-4xl">
         <div className="grid gap-6 sm:grid-cols-3 text-left">
           <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-6">
@@ -87,7 +87,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
             </div>
             <h3 className="font-medium text-foreground">Five analysts, one question</h3>
             <p className="text-sm text-muted-foreground">
-              Macro, market intel, news, sentiment, and technical — each examines
+              Macro, market intel, news, sentiment, and technical: each examines
               your watchlist from its own perspective.
             </p>
           </div>
@@ -114,7 +114,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
         </div>
       </div>
 
-      {/* Tech stack — marquee with actual project logos, fading ends */}
+      {/* Tech stack: marquee with actual project logos, fading ends */}
       <div className="mt-4 w-full max-w-4xl overflow-hidden marquee-mask">
         <div className="flex w-max marquee-track">
           {[...TECH_MARQUEE_ITEMS, ...TECH_MARQUEE_ITEMS].map((item, i) => (
@@ -131,7 +131,7 @@ function Hero({ onTryDemo }: { onTryDemo: () => void }) {
   );
 }
 
-// ─── Landing shell — manages hero ↔ app transition ────────────────
+// ─── Landing shell: manages hero ↔ app transition ────────────────
 // Both hero and workbench are server-rendered. The transition is purely
 // visual (opacity + transform). URL reflects state via ?app=1.
 // Direct arrival at /?app=1 renders the tool with no hero flash.
@@ -174,28 +174,33 @@ export function LandingShell({
       "relative flex flex-col min-h-[100dvh] bg-background",
       !showApp && "overflow-hidden",
     )}>
-      {/* Header — Carbon Veil with backdrop blur, Phosphor Blue-Black bottom border */}
-      <header className="border-b border-border sticky top-0 z-10 bg-muted/95 backdrop-blur">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={goToHero}
-              className="flex items-center gap-2 transition-opacity hover:opacity-80"
-              aria-label="Overnight Brief — back to home"
-            >
-              <Moon className="h-5 w-5 text-primary" aria-hidden="true" />
-              <span className="font-medium text-foreground">Overnight Brief</span>
-            </button>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline">AI Trading Desk · Bitget Hackathon S2</span>
-              <span className="sm:hidden">Bitget S2</span>
-            </div>
+      {/* Header: Carbon Veil, Phosphor Blue-Black border, nav shadow (only place shadows are allowed) */}
+      <header
+        className="sticky top-0 z-10 backdrop-blur-[10px]"
+        style={{
+          backgroundColor: "var(--muted)",
+          borderBottom: "1px solid var(--nav-border)",
+          boxShadow: "var(--nav-shadow)",
+        }}
+      >
+        <div className="mx-auto w-full max-w-6xl px-6 h-16 flex items-center justify-between">
+          <button
+            onClick={goToHero}
+            className="flex items-center gap-2 transition-opacity hover:opacity-80"
+            aria-label="Overnight Brief: back to home"
+          >
+            <Moon className="h-5 w-5 text-primary" aria-hidden="true" />
+            <span className="text-sm font-medium tracking-tight text-foreground">Overnight Brief</span>
+          </button>
+          <div className="flex items-center gap-2 text-sm font-medium tracking-tight text-foreground/80">
+            <Sparkles className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span className="hidden sm:inline">AI Trading Desk · Bitget Hackathon S2</span>
+            <span className="sm:hidden">Bitget S2</span>
           </div>
         </div>
       </header>
 
-      {/* Hero — hidden when app is active */}
+      {/* Hero: hidden when app is active */}
       <div
         className={cn(
           "transition-all duration-300 ease-out flex-1",
@@ -210,7 +215,7 @@ export function LandingShell({
         </div>
       </div>
 
-      {/* Workbench — hidden when hero is active, but in the DOM */}
+      {/* Workbench: hidden when hero is active, but in the DOM */}
       <div
         className={cn(
           "transition-all duration-300 ease-out",
@@ -228,8 +233,8 @@ export function LandingShell({
                   Your overnight <br /> research desk
                 </h1>
                 <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed">
-                  Five specialist analysts — macro, market intel, news,
-                  sentiment, and technical — examine what happened in tokenized
+                  Five specialist analysts (macro, market intel, news,
+                  sentiment, and technical) examine what happened in tokenized
                   US-stock markets while you slept, then synthesize a ranked
                   briefing with clear action items.
                 </p>

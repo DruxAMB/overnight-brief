@@ -1,6 +1,6 @@
 // ─── Stock logo component ──────────────────────────────────────────
 // Inline SVG brand logos from SimpleIcons (CC0 license).
-// Self-hosted as inline SVG — no network dependency, no external CDN.
+// Self-hosted as inline SVG: no network dependency, no external CDN.
 // Source: https://simpleicons.org
 
 import type { WatchlistItem } from "@/lib/types";

@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Overnight Brief — Your AI Research Desk for Tokenized Markets",
+  title: "Overnight Brief: Your AI Research Desk for Tokenized Markets",
   description:
     "Wake up to a multi-agent briefing on what happened in tokenized US-stock markets while you slept. Five specialist analysts, one ranked briefing, clear action items.",
 };

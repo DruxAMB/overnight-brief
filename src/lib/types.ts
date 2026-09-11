@@ -4,8 +4,8 @@
 
 /** A tokenized US-stock position in the user's seeded watchlist. */
 export interface WatchlistItem {
-  symbol: string; // e.g. "rNVDA" — the rToken symbol on Bitget
-  underlying: string; // e.g. "NVDA" — the native US stock
+  symbol: string; // e.g. "rNVDA": the rToken symbol on Bitget
+  underlying: string; // e.g. "NVDA": the native US stock
   name: string; // e.g. "NVIDIA Corp"
   lastPrice: number; // last traded price in USDT
   overnightChangePct: number; // e.g. +2.3 or -1.2
@@ -14,7 +14,7 @@ export interface WatchlistItem {
   positionSize: number; // user's seeded position in USD
 }
 
-/** A specialist analyst persona — maps 1:1 to a bitget-signal skill. */
+/** A specialist analyst persona: maps 1:1 to a bitget-signal skill. */
 export interface AnalystPersona {
   id: AnalystId;
   name: string;
@@ -33,7 +33,7 @@ export type AnalystId =
 /** The status of a single analyst during a briefing run. */
 export type AnalystStatus = "idle" | "thinking" | "done" | "error";
 
-/** A single analyst's finding — structured for predictable UI. */
+/** A single analyst's finding: structured for predictable UI. */
 export interface AnalystFinding {
   analystId: AnalystId;
   analystName: string;

@@ -150,7 +150,7 @@ function AnalystPanel({
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-2 text-left"
-        aria-label={`${persona.name} panel — click to ${expanded ? "collapse" : "expand"}`}
+        aria-label={`${persona.name} panel: click to ${expanded ? "collapse" : "expand"}`}
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-3">
@@ -186,7 +186,7 @@ function AnalystPanel({
         <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
       )}
 
-      {/* Thinking state — orb + status text */}
+      {/* Thinking state: orb + status text */}
       {isThinking && (
         <div className="mt-4 flex items-center gap-3" aria-label="Analyst thinking">
           <ThinkingOrb
@@ -285,7 +285,7 @@ function ActionItemCard({
       <button
         onClick={onToggle}
         className="flex w-full items-start justify-between gap-3 text-left"
-        aria-label={`Action item ${item.rank}: ${item.action} — click to ${expanded ? "collapse" : "expand"}`}
+        aria-label={`Action item ${item.rank}: ${item.action}, click to ${expanded ? "collapse" : "expand"}`}
         aria-expanded={expanded}
       >
         <div className="flex items-start gap-3 flex-1">
@@ -432,7 +432,7 @@ export function Workbench() {
             const event: BriefingStreamEvent = JSON.parse(line);
             handleStreamEvent(event);
           } catch {
-            // partial line — skip
+            // partial line, skip
           }
         }
       }
@@ -697,7 +697,7 @@ export function Workbench() {
         </Card>
       )}
 
-      {/* Synthesis state — orb while the synthesizer assembles the briefing */}
+      {/* Synthesis state: orb while the synthesizer assembles the briefing */}
       {isSynthesizing && !hasResults && (
         <Card className="border-border bg-muted/50 flex items-center justify-center gap-4 py-12">
           <ThinkingOrb state="composing" size={64} theme="dark" speed={1} />
@@ -830,7 +830,7 @@ export function Workbench() {
           ? "Market data loads when you generate a briefing."
           : dataIsLive
             ? "Live market data from Bitget. Analysis by Qwen 3.6 Plus."
-            : "Bitget API unreachable — using curated seed data for demo reliability."}
+            : "Bitget API unreachable, using curated seed data for demo reliability."}
       </p>
     </div>
   );

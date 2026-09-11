@@ -4,7 +4,7 @@ import { SEED_WATCHLIST } from "./seed-data";
 
 // ─── Bitget market data adapter ───────────────────────────────────
 // Fetches real rToken ticker data from Bitget's public market endpoint.
-// No API key required — market data is public.
+// No API key required: market data is public.
 // Falls back to seed data if the API is unreachable.
 
 let client: BitgetRestClient | null = null;
@@ -61,7 +61,7 @@ export async function fetchWatchlist(): Promise<{
 
         const tickers = (result.data as { data?: BitgetTicker[] }).data;
         if (!tickers || tickers.length === 0) {
-          // Symbol not found — use seed for this one
+          // Symbol not found: use seed for this one
           const seed = SEED_WATCHLIST.find((w) => w.symbol === rt.symbol);
           if (seed) items.push(seed);
           continue;
@@ -90,7 +90,7 @@ export async function fetchWatchlist(): Promise<{
           positionSize: rt.positionSize,
         });
       } catch (err) {
-        // Individual symbol failed — use seed for this one
+        // Individual symbol failed: use seed for this one
         console.error(`[Bitget] Failed to fetch ${rt.symbol}:`, err);
         const seed = SEED_WATCHLIST.find((w) => w.symbol === rt.symbol);
         if (seed) items.push(seed);

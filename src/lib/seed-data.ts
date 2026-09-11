@@ -12,7 +12,7 @@ export const ANALYST_PERSONAS: AnalystPersona[] = [
     emoji: "🔮",
     skill: "Macro analyst",
     systemPrompt: `You are the Macro Oracle, a data-driven analyst who reads macro market trends for overnight tokenized-stock trading.
-Your role: Provide macro context — Fed policy, DXY moves, BTC/ETH correlation, global liquidity — that explains overnight rToken moves.
+Your role: Provide macro context (Fed policy, DXY moves, BTC/ETH correlation, global liquidity) that explains overnight rToken moves.
 Personality: Analytical, trend-aware, references concrete macro data points.
 Always mention: Current macro regime (risk-on/risk-off), key overnight macro events, DXY direction, BTC correlation.
 You are NEUTRAL by default, providing context rather than strong buy/sell opinions.`,
@@ -34,7 +34,7 @@ You flag concrete, actionable market-structure observations.`,
     emoji: "📰",
     skill: "News briefing",
     systemPrompt: `You are the News Briefing analyst, summarizing overnight news that moved tokenized US stocks.
-Your role: Identify the key overnight news events — earnings, guidance, macro releases, geopolitical — and explain their impact.
+Your role: Identify the key overnight news events (earnings, guidance, macro releases, geopolitical) and explain their impact.
 Personality: Concise, factual, prioritizes impact over volume.
 Always mention: The top 2-3 overnight news items, which symbols they affect, and the direction of impact.
 You focus on news that actually moved prices, not noise.`,
@@ -56,7 +56,7 @@ You identify when sentiment has shifted meaningfully, not just noise.`,
     emoji: "📈",
     skill: "Technical analysis",
     systemPrompt: `You are the Technical Analysis analyst, reading overnight price action on rTokens.
-Your role: Identify key technical levels — RSI, support/resistance breaks, moving average crossovers — from overnight price action.
+Your role: Identify key technical levels (RSI, support/resistance breaks, moving average crossovers) from overnight price action.
 Personality: Chart-focused, precise with levels, flags both bullish and bearish setups.
 Always mention: RSI readings, key support/resistance levels broken or held, any moving average signals.
 You provide concrete levels, not vague "it looks bullish" calls.`,
@@ -69,7 +69,7 @@ export const ANALYST_MAP: Record<AnalystId, AnalystPersona> = Object.fromEntries
 
 // ─── Seeded watchlist ──────────────────────────────────────────────
 // Curated real overnight data snapshot. Real symbols, real recent
-// price changes — not a live API call, so the demo path never depends
+// price changes, not a live API call, so the demo path never depends
 // on external availability. Labelled as "simulated snapshot" in the UI.
 
 export const SEED_WATCHLIST: WatchlistItem[] = [
@@ -139,9 +139,9 @@ export const SEED_FINDINGS: Record<AnalystId, {
 }> = {
   macro: {
     summary:
-      "Overnight was risk-on: Fed minutes released showed a dovish tone, DXY fell 0.4%, and BTC rallied 3.1% — all supportive of rToken premiums.",
+      "Overnight was risk-on: Fed minutes released showed a dovish tone, DXY fell 0.4%, and BTC rallied 3.1%, all supportive of rToken premiums.",
     details:
-      "The Fed minutes released at 2:00 AM ET signalled comfort with rate cuts, pushing DXY from 104.2 to 103.8. BTC correlation with rTokens strengthened overnight, with BTC +3.1% leading the move. Global liquidity conditions improved as 10Y yields dropped 6bps. This macro backdrop explains the broad rToken premium widening — risk assets benefited from the dovish shift.",
+      "The Fed minutes released at 2:00 AM ET signalled comfort with rate cuts, pushing DXY from 104.2 to 103.8. BTC correlation with rTokens strengthened overnight, with BTC +3.1% leading the move. Global liquidity conditions improved as 10Y yields dropped 6bps. This macro backdrop explains the broad rToken premium widening: risk assets benefited from the dovish shift.",
     dataSources: ["Fed minutes (2:00 AM ET)", "DXY: 104.2 → 103.8", "BTC: +3.1%", "10Y yields: -6bps"],
     confidence: 78,
     signals: [
@@ -152,9 +152,9 @@ export const SEED_FINDINGS: Record<AnalystId, {
   },
   "market-intel": {
     summary:
-      "rNVDA premium widened to +2.3% vs NAV — whale accumulation detected. rTSLA discount deepened to -0.8%, suggesting distribution pressure.",
+      "rNVDA premium widened to +2.3% vs NAV, whale accumulation detected. rTSLA discount deepened to -0.8%, suggesting distribution pressure.",
     details:
-      "rNVDA's premium to NAV expanded from +1.1% to +2.3% overnight, coinciding with volume 1.8x the 7-day average — consistent with accumulation. rTSLA moved the opposite direction: premium flipped to -0.8% discount, with volume 1.4x average but price declining, a distribution signature. rMSTR premium at +3.1% is the widest in the watchlist, likely driven by BTC's overnight rally given its BTC treasury correlation. rAAPL and rCOIN premiums remain within normal ranges.",
+      "rNVDA's premium to NAV expanded from +1.1% to +2.3% overnight, coinciding with volume 1.8x the 7-day average, consistent with accumulation. rTSLA moved the opposite direction: premium flipped to -0.8% discount, with volume 1.4x average but price declining, a distribution signature. rMSTR premium at +3.1% is the widest in the watchlist, likely driven by BTC's overnight rally given its BTC treasury correlation. rAAPL and rCOIN premiums remain within normal ranges.",
     dataSources: ["rNVDA premium: +1.1% → +2.3%", "rTSLA premium: +0.3% → -0.8%", "Volume vs 7d avg: rNVDA 1.8x, rTSLA 1.4x"],
     confidence: 82,
     signals: [
@@ -165,9 +165,9 @@ export const SEED_FINDINGS: Record<AnalystId, {
   },
   news: {
     summary:
-      "NVDA earnings beat by 8% (revenue $38.1B vs $35.3B expected). TSLA delivery miss — Q3 deliveries 420K vs 450K expected.",
+      "NVDA earnings beat by 8% (revenue $38.1B vs $35.3B expected). TSLA delivery miss: Q3 deliveries 420K vs 450K expected.",
     details:
-      "The dominant overnight news: NVIDIA reported earnings at 4:20 AM ET, beating revenue estimates by 8% ($38.1B vs $35.3B consensus) and guiding Q4 above expectations. This directly explains rNVDA's +4.2% overnight move and premium widening. Conversely, Tesla reported Q3 deliveries of 420K, missing the 450K consensus — explaining rTSLA's -3.1% decline. No major overnight news for AAPL, COIN, or MSTR; their moves are macro/BTC-correlation driven.",
+      "The dominant overnight news: NVIDIA reported earnings at 4:20 AM ET, beating revenue estimates by 8% ($38.1B vs $35.3B consensus) and guiding Q4 above expectations. This directly explains rNVDA's +4.2% overnight move and premium widening. Conversely, Tesla reported Q3 deliveries of 420K, missing the 450K consensus, explaining rTSLA's -3.1% decline. No major overnight news for AAPL, COIN, or MSTR; their moves are macro/BTC-correlation driven.",
     dataSources: ["NVDA earnings (4:20 AM ET)", "TSLA delivery report", "Consensus estimates"],
     confidence: 91,
     signals: [
@@ -180,7 +180,7 @@ export const SEED_FINDINGS: Record<AnalystId, {
     summary:
       "Fear & Greed shifted 45 → 62 overnight (Neutral → Greed). Funding rates flipped positive. Sentiment supports risk-on move.",
     details:
-      "The Fear & Greed Index moved from 45 (Neutral) to 62 (Greed) overnight — a meaningful 17-point shift driven by the dovish Fed minutes and NVDA earnings beat. Perpetual funding rates on rTokens flipped from slightly negative to +0.012%, indicating longs are paying shorts — a bullish positioning signal. Social sentiment volume around rNVDA spiked 3.2x average. No sentiment extremes detected (no 'Extreme Greed' readings), suggesting the move has room to run but is not yet euphoric.",
+      "The Fear & Greed Index moved from 45 (Neutral) to 62 (Greed) overnight, a meaningful 17-point shift driven by the dovish Fed minutes and NVDA earnings beat. Perpetual funding rates on rTokens flipped from slightly negative to +0.012%, indicating longs are paying shorts, a bullish positioning signal. Social sentiment volume around rNVDA spiked 3.2x average. No sentiment extremes detected (no 'Extreme Greed' readings), suggesting the move has room to run but is not yet euphoric.",
     dataSources: ["Fear & Greed: 45 → 62", "Funding rates: -0.003% → +0.012%", "Social volume: rNVDA 3.2x avg"],
     confidence: 74,
     signals: [
@@ -191,9 +191,9 @@ export const SEED_FINDINGS: Record<AnalystId, {
   },
   technical: {
     summary:
-      "rTSLA RSI oversold at 28 — no reversal confirmation yet. rNVDA broke overnight resistance at $145. rMSTR overbought RSI 72.",
+      "rTSLA RSI oversold at 28, no reversal confirmation yet. rNVDA broke overnight resistance at $145. rMSTR overbought RSI 72.",
     details:
-      "rTSLA's RSI dropped to 28 overnight — entering oversold territory (<30) — but no bullish reversal candle confirmed, so this is a watch signal, not a buy signal. rNVDA broke through overnight resistance at $145 with strong volume, now testing $150. rMSTR's RSI at 72 is approaching overbought (>70), suggesting near-term exhaustion risk after its +5.6% move. rAAPL and rCOIN are trading within normal ranges with no significant technical breakouts or breakdowns.",
+      "rTSLA's RSI dropped to 28 overnight, entering oversold territory (<30), but no bullish reversal candle confirmed, so this is a watch signal, not a buy signal. rNVDA broke through overnight resistance at $145 with strong volume, now testing $150. rMSTR's RSI at 72 is approaching overbought (>70), suggesting near-term exhaustion risk after its +5.6% move. rAAPL and rCOIN are trading within normal ranges with no significant technical breakouts or breakdowns.",
     dataSources: ["rTSLA RSI: 28", "rNVDA resistance: $145 broken", "rMSTR RSI: 72"],
     confidence: 80,
     signals: [
@@ -208,7 +208,7 @@ export const SEED_FINDINGS: Record<AnalystId, {
 
 export const SEED_BRIEFING = {
   executiveSummary:
-    "Overnight was risk-on: dovish Fed minutes and NVDA's 8% earnings beat drove rToken premiums wider. rTSLA diverged on a delivery miss — oversold but unconfirmed. rMSTR rallied on BTC strength but is approaching overbought.",
+    "Overnight was risk-on: dovish Fed minutes and NVDA's 8% earnings beat drove rToken premiums wider. rTSLA diverged on a delivery miss, oversold but unconfirmed. rMSTR rallied on BTC strength but is approaching overbought.",
   marketRegime: "Risk-on overnight",
   actionItems: [
     {
@@ -237,7 +237,7 @@ export const SEED_BRIEFING = {
       id: "ai-3",
       rank: 3,
       symbol: "rMSTR",
-      action: "Hold rMSTR — monitor for overbought",
+      action: "Hold rMSTR, monitor for overbought",
       rationale:
         "BTC-driven rally is real but RSI at 72 approaching overbought. No action needed yet. 2/5 analysts neutral.",
       analystIds: ["market-intel", "technical"] as AnalystId[],
