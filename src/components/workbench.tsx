@@ -26,6 +26,12 @@ import {
   DEFAULT_PROMPT,
 } from "@/lib/seed-data";
 import { EditableWatchlist, loadWatchlistSymbols } from "@/components/editable-watchlist";
+import {
+  BriefingArchive,
+  loadArchive,
+  saveToArchive,
+  type ArchiveEntry,
+} from "@/components/briefing-archive";
 import { DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
 import type {
   AnalystId,
@@ -475,12 +481,16 @@ export function Workbench() {
   const [dataTimestamp, setDataTimestamp] = useState<string | null>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [userSymbols, setUserSymbols] = useState<string[]>(DEFAULT_WATCHLIST_SYMBOLS);
+  const [archive, setArchive] = useState<ArchiveEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const briefingRef = useRef<HTMLDivElement>(null);
+  const promptForRun = useRef<string>("");
+  const findingsRef = useRef<Partial<Record<AnalystId, AnalystFinding>>>({});
 
-  // Load user's personalized watchlist from localStorage on mount
+  // Load user's personalized watchlist and briefing archive from localStorage on mount
   useEffect(() => {
     setUserSymbols(loadWatchlistSymbols());
+    setArchive(loadArchive());
   }, []);
 
   const runBriefing = useCallback(async (promptText: string) => {
@@ -507,6 +517,8 @@ export function Workbench() {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    promptForRun.current = promptText;
+    findingsRef.current = {};
 
     try {
       const res = await fetch("/api/briefing", {
@@ -589,6 +601,7 @@ export function Workbench() {
       case "analyst-done":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "done" }));
         setAnalystFindings((prev) => ({ ...prev, [event.analystId]: event.finding }));
+        findingsRef.current[event.analystId] = event.finding;
         break;
       case "analyst-error":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "error" }));
@@ -615,6 +628,15 @@ export function Workbench() {
         setBriefing(event.briefing);
         setRunState("done");
         setIsSynthesizing(false);
+        setArchive(
+          saveToArchive({
+            id: `run-${Date.now()}`,
+            prompt: promptForRun.current,
+            briefing: event.briefing,
+            findings: { ...findingsRef.current },
+            savedAt: new Date().toISOString(),
+          }),
+        );
         break;
       case "error":
         setError(event.error);
@@ -668,6 +690,31 @@ export function Workbench() {
     // Clicking a watchlist item fills the prompt with a focus on that symbol
     setPrompt(`Should I adjust my ${symbol} position?`);
   }, []);
+
+  const handleRestore = useCallback((entry: ArchiveEntry) => {
+    if (runState === "running") return;
+    setBriefing(entry.briefing);
+    setPrompt(entry.prompt);
+    setAnalystFindings((prev) => {
+      const next = { ...prev };
+      for (const p of ANALYST_PERSONAS) {
+        next[p.id] = entry.findings[p.id] ?? null;
+      }
+      return next;
+    });
+    setAnalystStatuses(
+      Object.fromEntries(
+        ANALYST_PERSONAS.map((p) => [p.id, entry.findings[p.id] ? "done" : "idle"]),
+      ) as Record<AnalystId, AnalystStatus>,
+    );
+    if (entry.briefing.watchlistSnapshot?.length) {
+      setWatchlist(entry.briefing.watchlistSnapshot);
+    }
+    setError(null);
+    setDataIsLive(null);
+    setRunState("done");
+    briefingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [runState]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -938,6 +985,9 @@ export function Workbench() {
           </div>
         </Card>
       )}
+
+      {/* Briefing archive */}
+      <BriefingArchive entries={archive} onRestore={handleRestore} disabled={isRunning} />
 
       {/* Analyst panels */}
       <div>
