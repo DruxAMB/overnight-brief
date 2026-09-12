@@ -78,6 +78,7 @@ export interface Briefing {
 /** A streaming event from the briefing API. */
 export type BriefingStreamEvent =
   | { type: "market-data"; isLive: boolean; timestamp: string; watchlist: WatchlistItem[] }
+  | { type: "watchlist-sparklines"; series: Record<string, number[]> }
   | { type: "analyst-start"; analystId: AnalystId; analystName: string; emoji: string }
   | { type: "analyst-progress"; analystId: AnalystId; stage: string }
   | { type: "analyst-chunk"; analystId: AnalystId; chunk: string }

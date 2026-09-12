@@ -242,6 +242,23 @@ export async function fetchCandles(
 }
 
 /**
+ * Fetch 24h of hourly close prices per symbol for watchlist sparklines.
+ * Runs all candle fetches in parallel; symbols that fail are omitted.
+ */
+export async function fetchSparklines(symbols: string[]): Promise<Record<string, number[]>> {
+  const results = await Promise.all(
+    symbols.map(async (symbol) => {
+      const { candles } = await fetchCandles(symbol, "1h", 24);
+      const closes = candles.map((c) => c.close).filter((v) => Number.isFinite(v));
+      return [symbol, closes.length >= 2 ? closes : null] as const;
+    }),
+  );
+  return Object.fromEntries(
+    results.filter((r): r is readonly [string, number[]] => r[1] !== null),
+  );
+}
+
+/**
  * Fetch funding rate for a perpetual contract from Bitget's public API.
  * Used by the Sentiment Analyst for positioning analysis.
  */

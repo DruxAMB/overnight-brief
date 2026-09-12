@@ -63,6 +63,41 @@ const ANALYST_ORB_STATES: Record<AnalystId, "searching" | "working" | "listening
   technical: "solving",
 };
 
+// ─── Sparkline: 24h hourly closes, rendered as an inline SVG ───────
+
+function Sparkline({ data, positive, width = 44, height = 16 }: {
+  data: number[];
+  positive: boolean;
+  width?: number;
+  height?: number;
+}) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data
+    .map((v, i) => `${((i / (data.length - 1)) * width).toFixed(1)},${(height - ((v - min) / range) * (height - 2) - 1).toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className={positive ? "text-success" : "text-destructive"}
+      aria-hidden="true"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 // ─── Watchlist component ───────────────────────────────────────────
 
 function Watchlist({
@@ -70,11 +105,13 @@ function Watchlist({
   highlightSymbol,
   onSelect,
   isLoading,
+  sparklines,
 }: {
   items: WatchlistItem[];
   highlightSymbol?: string;
   onSelect?: (symbol: string) => void;
   isLoading?: boolean;
+  sparklines?: Record<string, number[]>;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -99,6 +136,9 @@ function Watchlist({
               <span className="font-medium text-foreground">{item.symbol}</span>
               <span className="text-xs text-muted-foreground">{item.name}</span>
             </div>
+            {sparklines?.[item.symbol] && (
+              <Sparkline data={sparklines[item.symbol]} positive={isUp} />
+            )}
             <div className="flex flex-col items-end ml-1">
               {item.lastPrice > 0 && (
                 <span className="font-mono text-xs text-muted-foreground">
@@ -137,6 +177,8 @@ function AnalystPanel({
   stages,
   expanded,
   onToggle,
+  sparklines,
+  watchlist,
 }: {
   persona: (typeof ANALYST_PERSONAS)[number];
   status: AnalystStatus;
@@ -144,6 +186,8 @@ function AnalystPanel({
   stages: string[];
   expanded: boolean;
   onToggle: () => void;
+  sparklines?: Record<string, number[]>;
+  watchlist?: WatchlistItem[];
 }) {
   const isThinking = status === "thinking";
   const isDone = status === "done";
@@ -242,6 +286,46 @@ function AnalystPanel({
                     {sig.label}: {sig.value}
                   </Badge>
                 ))}
+              </div>
+            </div>
+          )}
+          {persona.id === "technical" && sparklines && watchlist && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Overnight price action — last 24h, hourly closes
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {watchlist
+                  .filter((w) => sparklines[w.symbol])
+                  .map((w) => (
+                    <div
+                      key={w.symbol}
+                      className="flex items-center justify-between rounded-lg bg-muted px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-foreground">{w.symbol}</span>
+                        <span
+                          className={cn(
+                            "font-mono text-xs",
+                            w.overnightChangePct > 0
+                              ? "text-success"
+                              : w.overnightChangePct < 0
+                                ? "text-destructive"
+                                : "text-muted-foreground",
+                          )}
+                        >
+                          {w.overnightChangePct > 0 ? "+" : ""}
+                          {w.overnightChangePct.toFixed(1)}%
+                        </span>
+                      </div>
+                      <Sparkline
+                        data={sparklines[w.symbol]}
+                        positive={w.overnightChangePct > 0}
+                        width={72}
+                        height={20}
+                      />
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -387,6 +471,7 @@ export function Workbench() {
   const [error, setError] = useState<string | null>(null);
   const [dataIsLive, setDataIsLive] = useState<boolean | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>(SEED_WATCHLIST);
+  const [sparklines, setSparklines] = useState<Record<string, number[]>>({});
   const [dataTimestamp, setDataTimestamp] = useState<string | null>(null);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [userSymbols, setUserSymbols] = useState<string[]>(DEFAULT_WATCHLIST_SYMBOLS);
@@ -486,6 +571,9 @@ export function Workbench() {
         if (event.watchlist && event.watchlist.length > 0) {
           setWatchlist(event.watchlist);
         }
+        break;
+      case "watchlist-sparklines":
+        setSparklines(event.series);
         break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
@@ -683,6 +771,7 @@ export function Workbench() {
           highlightSymbol={highlightSymbol}
           onSelect={handleWatchlistSelect}
           isLoading={isRunning && dataIsLive === null}
+          sparklines={sparklines}
         />
         <div className="mt-3">
           <EditableWatchlist
@@ -861,6 +950,8 @@ export function Workbench() {
               status={analystStatuses[persona.id]}
               finding={analystFindings[persona.id]}
               stages={analystStages[persona.id]}
+              sparklines={sparklines}
+              watchlist={watchlist}
               expanded={expandedAnalyst === persona.id}
               onToggle={() => setExpandedAnalyst(expandedAnalyst === persona.id ? null : persona.id)}
             />

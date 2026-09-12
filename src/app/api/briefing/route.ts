@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ANALYST_PERSONAS } from "@/lib/seed-data";
 import { runAnalyst, synthesizeBriefing } from "@/lib/analysts";
-import { fetchWatchlist } from "@/lib/bitget-market";
+import { fetchWatchlist, fetchSparklines } from "@/lib/bitget-market";
 import { getRTokenMeta, DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
 import type { AnalystFinding, BriefingStreamEvent, WatchlistItem } from "@/lib/types";
 
@@ -33,6 +33,14 @@ export async function POST(request: NextRequest) {
 
         // Signal data source to the client
         send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });
+
+        // Sparkline series arrive in parallel with the analyst run — the
+        // client renders them on the watchlist chips as soon as they land.
+        const sparklinesDone = fetchSparklines(symbols).then((series) => {
+          if (Object.keys(series).length > 0) {
+            send({ type: "watchlist-sparklines", series });
+          }
+        });
 
         // Run analysts in parallel with a staggered start: panels still
         // light up one by one (the money shot), but the LLM calls overlap
@@ -73,6 +81,8 @@ export async function POST(request: NextRequest) {
             }
           }),
         );
+
+        await sparklinesDone;
 
         // Synthesize
         send({ type: "synthesis-start" });
