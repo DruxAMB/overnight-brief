@@ -14,7 +14,7 @@ import {
   Database,
   X,
 } from "lucide-react";
-import { Card, Badge, Button, Skeleton } from "@/components/ui";
+import { Card, Badge, Button } from "@/components/ui";
 import { Stack } from "@/components/layout";
 import { StockLogo } from "@/components/stock-logo";
 import { ThinkingOrb } from "thinking-orbs";
@@ -134,12 +134,14 @@ function AnalystPanel({
   persona,
   status,
   finding,
+  stages,
   expanded,
   onToggle,
 }: {
   persona: (typeof ANALYST_PERSONAS)[number];
   status: AnalystStatus;
   finding: AnalystFinding | null;
+  stages: string[];
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -188,19 +190,28 @@ function AnalystPanel({
         <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
       )}
 
-      {/* Thinking state: orb + status text */}
+      {/* Thinking state: orb + live pipeline stage log */}
       {isThinking && (
-        <div className="mt-4 flex items-center gap-3" aria-label="Analyst thinking">
+        <div className="mt-4 flex items-start gap-3" aria-label="Analyst thinking">
           <ThinkingOrb
             state={ANALYST_ORB_STATES[persona.id]}
             size={64}
             theme="dark"
             speed={1.2}
           />
-          <div className="flex-1 space-y-2">
-            <p className="text-xs text-primary">Analyzing {persona.name.toLowerCase()} signals...</p>
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-3/4" />
+          <div className="flex-1 min-w-0 space-y-1" aria-live="polite">
+            {(stages.length > 0 ? stages.slice(-4) : ["Starting up..."]).map((stage, i, arr) => (
+              <p
+                key={i}
+                className={cn(
+                  "truncate text-xs font-mono",
+                  i === arr.length - 1 ? "text-primary" : "text-muted-foreground/60",
+                )}
+              >
+                <span aria-hidden="true">› </span>
+                {stage}
+              </p>
+            ))}
           </div>
         </div>
       )}
@@ -367,6 +378,9 @@ export function Workbench() {
   const [analystFindings, setAnalystFindings] = useState<Record<AnalystId, AnalystFinding | null>>(
     Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, null])) as Record<AnalystId, AnalystFinding | null>,
   );
+  const [analystStages, setAnalystStages] = useState<Record<AnalystId, string[]>>(
+    Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, [] as string[]])) as Record<AnalystId, string[]>,
+  );
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [expandedAnalyst, setExpandedAnalyst] = useState<AnalystId | null>(null);
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
@@ -401,6 +415,9 @@ export function Workbench() {
     );
     setAnalystFindings(
       Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, null])) as Record<AnalystId, AnalystFinding | null>,
+    );
+    setAnalystStages(
+      Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, [] as string[]])) as Record<AnalystId, string[]>,
     );
 
     const controller = new AbortController();
@@ -472,6 +489,14 @@ export function Workbench() {
         break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
+        break;
+      case "analyst-progress":
+        setAnalystStages((prev) => ({
+          ...prev,
+          [event.analystId]: prev[event.analystId].includes(event.stage)
+            ? prev[event.analystId]
+            : [...prev[event.analystId], event.stage],
+        }));
         break;
       case "analyst-done":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "done" }));
@@ -548,7 +573,7 @@ export function Workbench() {
   const progressLabel = isSynthesizing
     ? "Synthesizing briefing..."
     : isRunning && doneCount < totalAnalysts
-      ? `Analyst ${doneCount + 1} of ${totalAnalysts} running...`
+      ? `${doneCount} of ${totalAnalysts} analysts complete`
       : null;
 
   const handleWatchlistSelect = useCallback((symbol: string) => {
@@ -563,6 +588,9 @@ export function Workbench() {
     // Reset analyst statuses to idle
     setAnalystStatuses(
       Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, "idle"])) as Record<AnalystId, AnalystStatus>,
+    );
+    setAnalystStages(
+      Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, [] as string[]])) as Record<AnalystId, string[]>,
     );
   }, []);
 
@@ -832,6 +860,7 @@ export function Workbench() {
               persona={persona}
               status={analystStatuses[persona.id]}
               finding={analystFindings[persona.id]}
+              stages={analystStages[persona.id]}
               expanded={expandedAnalyst === persona.id}
               onToggle={() => setExpandedAnalyst(expandedAnalyst === persona.id ? null : persona.id)}
             />

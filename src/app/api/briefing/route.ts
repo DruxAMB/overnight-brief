@@ -3,7 +3,7 @@ import { ANALYST_PERSONAS } from "@/lib/seed-data";
 import { runAnalyst, synthesizeBriefing } from "@/lib/analysts";
 import { fetchWatchlist } from "@/lib/bitget-market";
 import { getRTokenMeta, DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
-import type { BriefingStreamEvent, WatchlistItem } from "@/lib/types";
+import type { AnalystFinding, BriefingStreamEvent, WatchlistItem } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,37 +34,45 @@ export async function POST(request: NextRequest) {
         // Signal data source to the client
         send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });
 
-        // Run analysts sequentially: each panel lights up one by one.
-        // This is the money shot: watching 5 panels activate in sequence.
-        const findings = [];
+        // Run analysts in parallel with a staggered start: panels still
+        // light up one by one (the money shot), but the LLM calls overlap
+        // so wall time is ~max(call) instead of the sum (~5x faster).
+        const STAGGER_MS = 800;
+        const findings: AnalystFinding[] = [];
 
-        for (const persona of ANALYST_PERSONAS) {
-          // Signal: analyst starting
-          send({
-            type: "analyst-start",
-            analystId: persona.id,
-            analystName: persona.name,
-            emoji: persona.emoji,
-          });
+        await Promise.all(
+          ANALYST_PERSONAS.map(async (persona, i) => {
+            if (i > 0) await new Promise((r) => setTimeout(r, i * STAGGER_MS));
 
-          try {
-            const finding = await runAnalyst(persona.id, prompt, watchlist);
-            findings.push(finding);
-
+            // Signal: analyst starting
             send({
-              type: "analyst-done",
+              type: "analyst-start",
               analystId: persona.id,
-              finding,
+              analystName: persona.name,
+              emoji: persona.emoji,
             });
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : "Analyst failed";
-            send({
-              type: "analyst-error",
-              analystId: persona.id,
-              error: msg,
-            });
-          }
-        }
+
+            try {
+              const finding = await runAnalyst(persona.id, prompt, watchlist, (stage) =>
+                send({ type: "analyst-progress", analystId: persona.id, stage }),
+              );
+              findings.push(finding);
+
+              send({
+                type: "analyst-done",
+                analystId: persona.id,
+                finding,
+              });
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : "Analyst failed";
+              send({
+                type: "analyst-error",
+                analystId: persona.id,
+                error: msg,
+              });
+            }
+          }),
+        );
 
         // Synthesize
         send({ type: "synthesis-start" });

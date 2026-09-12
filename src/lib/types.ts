@@ -79,6 +79,7 @@ export interface Briefing {
 export type BriefingStreamEvent =
   | { type: "market-data"; isLive: boolean; timestamp: string; watchlist: WatchlistItem[] }
   | { type: "analyst-start"; analystId: AnalystId; analystName: string; emoji: string }
+  | { type: "analyst-progress"; analystId: AnalystId; stage: string }
   | { type: "analyst-chunk"; analystId: AnalystId; chunk: string }
   | { type: "analyst-done"; analystId: AnalystId; finding: AnalystFinding }
   | { type: "analyst-error"; analystId: AnalystId; error: string }

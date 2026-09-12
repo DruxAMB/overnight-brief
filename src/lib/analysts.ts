@@ -890,14 +890,25 @@ function reasonTechnicalFallback(
 
 // ─── Run a single analyst with real data ──────────────────────────
 
+// Human-readable pipeline stages surfaced to the UI as the analyst works.
+const ANALYST_STAGE_LABELS: Record<AnalystId, string> = {
+  macro: "Fetching macro indicators — DXY, VIX, yield curve, BTC/ETH",
+  "market-intel": "Pulling funding rates, open interest, long/short ratios",
+  news: "Scanning overnight headlines via bitget-signal",
+  sentiment: "Reading Fear & Greed, taker flow, social volume",
+  technical: "Computing RSI, momentum and premium levels",
+};
+
 export async function runAnalyst(
   personaId: AnalystId,
   userPrompt: string,
   watchlist: WatchlistItem[],
+  onProgress?: (stage: string) => void,
 ): Promise<AnalystFinding> {
   const persona = ANALYST_PERSONAS.find((p) => p.id === personaId)!;
 
   // Fetch real data for this analyst's domain (in parallel)
+  onProgress?.(ANALYST_STAGE_LABELS[personaId]);
   let realDataContext = "";
   try {
     let data: string = "";
@@ -929,17 +940,21 @@ export async function runAnalyst(
       }
     }
     realDataContext = data;
+    onProgress?.("Live market data acquired");
   } catch (err) {
     console.error(`[Analyst ${personaId}] data fetch error:`, err);
     realDataContext = "Market data temporarily unavailable for this domain.";
+    onProgress?.("Data feeds degraded — using fallback context");
   }
 
   // If no Qwen key, use dynamic fallback with real data
   if (!hasQwenKey()) {
+    onProgress?.("No LLM key — reasoning over raw data locally");
     return dynamicFallback(personaId, realDataContext, watchlist);
   }
 
   // Call Qwen with real data context
+  onProgress?.("Reasoning with Qwen 3.6 Plus over live data");
   try {
     const messages = buildAnalystPrompt(personaId, userPrompt, watchlist, realDataContext);
     const text = await callQwen(messages);
@@ -966,6 +981,7 @@ export async function runAnalyst(
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Analyst failed";
     console.error(`[Analyst ${personaId}] LLM error:`, msg);
+    onProgress?.("LLM call failed — falling back to local reasoning");
     // Fallback to dynamic analysis from real data
     return dynamicFallback(personaId, realDataContext, watchlist);
   }
