@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         // Signal data source to the client
         send({ type: "market-data", isLive, timestamp: new Date().toISOString(), watchlist });
 
-        // Sparkline series arrive in parallel with the analyst run — the
+        // Sparkline series arrive in parallel with the analyst run; the
         // client renders them on the watchlist chips as soon as they land.
         const sparklinesDone = fetchSparklines(symbols).then((series) => {
           if (Object.keys(series).length > 0) {

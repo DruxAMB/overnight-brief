@@ -1,36 +1,21 @@
 # Overnight Brief
 
-> An AI research desk that explains what happened in tokenized US-stock markets while you slept.
+> Wake up to a ranked briefing on what happened in tokenized US-stock markets while you slept. Five specialist AI analysts, one synthesis, three action items.
 
-[**▶ Live demo**](https://overnight-brief.druxamb.dev) · [Submission](https://forms.gle/GyWZCMCPocgJdJon6)
+[**▶ Live demo**](https://overnight-brief.druxamb.dev)
 
-![Overnight Brief workbench with the synthesized briefing, analyst panels, and watchlist](docs/hero.png)
+![The workbench mid-run: live watchlist with 24h sparklines, market breadth strip, and the timestamped desk-activity ledger](public/screenshot.png)
 
 ## The problem
 
-Tokenized US stocks trade around the clock, but humans sleep. Overnight moves, macro events, and rToken premium shifts pile up unexplained. You wake up to a gap in your position and no idea what caused it or what to do about it.
+Tokenized US stocks trade around the clock; humans sleep. Overnight moves, macro events, and premium shifts pile up unexplained. You wake to a gap in your position and no idea what caused it.
 
 ## What it does
 
-- **Multi-agent overnight briefing.** Ask "What happened while I slept?" and five specialist analysts (macro, market intel, news, sentiment, technical) each examine your watchlist from their own angle. Panels activate one by one, and each shows its real pipeline stages as it works: which data feeds it is pulling, when live data lands, when the LLM is reasoning.
-- **Synthesized briefing.** A sixth agent merges the five findings into an executive summary, a market regime call, and three ranked action items tied to your positions.
-- **Drill-down.** Click any analyst panel or action item for the full reasoning, signals, confidence score, and cited data sources. The technical panel also shows the raw 24h price action it reasoned over.
-- **Follow-up Q&A.** Ask a targeted question ("Should I adjust my rNVDA position?") and the same pipeline re-runs focused on that symbol.
-- **Editable watchlist and session archive.** Add or remove rToken symbols; every completed run is saved locally and can be restored into the workbench.
-- **Live market tape and desk ledger.** A scrolling ticker of watchlist rTokens plus BTC/ETH runs at the top of the page, and a timestamped activity ledger records every real pipeline event: data fetches, analyst stages, filed findings, synthesis. The finished briefing reports its own depth: analyst count, data sources, signals, actions, and run duration.
-
-## Demo walkthrough
-
-| Step | Action | What happens |
-|---|---|---|
-| 1 | Open the URL | Workbench with a live watchlist (5 rTokens with real prices and 24h sparklines), a pre-filled prompt, five idle analyst panels |
-| 2 | Click "Generate Briefing" | Panels activate one by one on a staggered start; each streams its live pipeline stages ("Pulling funding rates...", "Reasoning with Qwen 3.6 Plus...") |
-| 3 | Wait ~2 minutes | Findings land per panel as each analyst finishes, then the synthesized briefing assembles: executive summary, market regime badge, three ranked action items |
-| 4 | Click an action item | Expands to show which analysts flagged it, their confidence scores, and the rationale |
-| 5 | Click Technical Analysis | Full findings, signal badges, data sources, and the overnight price strip it analyzed |
-| 6 | Ask a follow-up | The pipeline re-runs focused on the asked symbol; the previous run moves into the archive |
-
-Generation takes about two minutes end to end because the analysis is real: six LLM calls through the hackathon proxy plus live data fetches. The stage log shows the work while it happens.
+- **Ask once, get a desk briefing.** "What happened while I slept?" fans out to five specialists (macro, market intel, news, sentiment, technical), each reasoning over its own slice of live data. A sixth agent merges the findings into an executive summary, a regime call, and three ranked action items.
+- **Watch it work.** Panels activate on staggered starts while streaming their real pipeline stage ("Pulling funding rates", "Reasoning with Qwen 3.6 Plus"). A timestamped ledger records every event, and the finished briefing reports its own depth: analyst count, data sources, signals, actions, duration.
+- **Live context, always.** A scrolling tape of watchlist rTokens plus BTC/ETH, a breadth strip ("4 up · 1 down · risk-on tilt"), and 24h sparklines on every chip.
+- **Drill down and follow up.** Expand any analyst or action item for full reasoning, signals, confidence, and cited sources. Ask follow-ups ("Should I adjust my rNVDA position?"), edit the watchlist, restore past runs from the local archive.
 
 ## How it works
 
@@ -64,9 +49,9 @@ graph TD
     M -.-> P
 ```
 
-Each analyst is a Qwen 3.6 Plus call with a distinct persona system prompt, reasoning over a different slice of live data: the macro analyst gets BTC/ETH and DXY/VIX context, market intel gets funding rates and open interest, technical gets hourly candles, and so on. The analysts run in parallel with a staggered start, so panels still light up one by one but the calls overlap; that cut end-to-end time from ~7 minutes to ~2.5.
+Each analyst is a separate Qwen 3.6 Plus call with a persona system prompt over a different data slice: macro gets BTC/ETH and DXY/VIX context, market intel gets funding rates and open interest, technical gets hourly candles. The calls run in parallel with staggered starts, so panels still light up one by one; end-to-end dropped from ~7 minutes to ~2.2.
 
-The hard part: this is not one LLM call with a fancy prompt. Five independent calls each produce a structured finding (summary, details, signals, confidence, cited sources), then a sixth call merges them into a coherent, ranked briefing. Every stage is visible on screen through a live pipeline log, so the judge watches the deliberation instead of a spinner.
+The hard part: this is not one LLM call with a fancy prompt. Five independent calls each produce a structured finding (summary, signals, confidence, cited sources), then a sixth call ranks and merges them. Fallbacks are layered: Qwen analysis, local reasoning over the real fetched data, curated seed content last.
 
 ## Built with
 
@@ -77,23 +62,23 @@ The hard part: this is not one LLM call with a fancy prompt. Five independent ca
 | Styling | Tailwind CSS 4 | Semantic token system, no hardcoded values |
 | Icons | lucide-react + simple-icons | UI icons and stock brand marks |
 | LLM | Qwen 3.6 Plus (via Bitget hackathon proxy) | Sponsor LLM, structured JSON output, OpenAI-compatible API |
-| Market data | Bitget Agent SDK (`@bitget-ai/bitget-agent-sdk`) + Bitget public REST | Live rToken tickers, candles, funding rates, open interest; no API key required |
+| Market data | Bitget Agent SDK + Bitget public REST | Live rToken tickers, candles, funding, open interest; keyless |
 | Research signals | bitget-signal MCP server | News, sentiment, macro context; keyless |
 | Effects | thinking-orbs, border-beam | Per-analyst animated states, briefing highlight |
-| Deploy | Vercel | Same-day, zero-config for Next.js |
+| Deploy | Vercel | Zero-config for Next.js |
 
 ## What's real vs. mocked
 
 | Component | Status | Notes |
 |---|---|---|
 | Multi-agent architecture | **Real** | Five distinct Qwen calls with persona prompts, staggered-parallel streaming, synthesizer merge |
-| Qwen LLM integration | **Real** | Qwen 3.6 Plus via the Bitget hackathon proxy (`hackathon.bitgetops.com/v1`), structured JSON output, prompt sanitization, retry on transient errors |
-| Bitget market data | **Real** | Live rToken tickers, hourly candles, funding rates, and open interest from Bitget's public endpoints on every briefing request |
-| bitget-signal MCP | **Real** | Keyless MCP calls for news, sentiment, and macro context; degrades gracefully when a feed has no data |
-| Pipeline stage log | **Real** | The "thinking" text in each panel is emitted by the actual pipeline stages, not scripted |
-| Analyst findings | **Real (LLM)** | Three-tier fallback: Qwen analysis, then local reasoning over the fetched real data, then curated seed findings |
-| Sparklines | **Real** | Last 24 hourly closes per symbol, fetched live and rendered as inline SVG |
-| Watchlist editing + archive | **Real** | localStorage-scoped; no accounts, so it does not sync across devices |
+| Qwen LLM integration | **Real** | Qwen 3.6 Plus via the Bitget hackathon proxy, structured JSON output, retry on transient errors |
+| Bitget market data | **Real** | Live rToken tickers, hourly candles, funding rates, and open interest on every briefing request |
+| bitget-signal MCP | **Real** | Keyless MCP calls for news, sentiment, and macro context; degrades gracefully per feed |
+| Pipeline stage log | **Real** | The "thinking" text is emitted by actual pipeline stages, not scripted |
+| Analyst findings | **Real (LLM)** | Three-tier fallback: Qwen, then local reasoning over the fetched data, then curated seeds |
+| Sparklines, tape, breadth | **Real** | Live Bitget prices and 24 hourly closes, rendered as inline SVG |
+| Watchlist editing + archive | **Real** | localStorage-scoped; no accounts, no cross-device sync |
 | Trading / order execution | **Not implemented** | Research desk by design. The human makes all decisions |
 
 ## Run it locally
@@ -103,36 +88,29 @@ git clone https://github.com/DruxAMB/overnight-brief.git
 cd overnight-brief
 npm ci
 cp .env.example .env.local
-# Optional: add BITGET_QWEN_API_KEY to .env.local for live LLM analysis
-# Without it, analysts reason over the live fetched data locally
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000. The app runs fully keyless; adding `BITGET_QWEN_API_KEY` to `.env.local` switches analyst reasoning from local fallback to live Qwen output.
 
-### Environment variables
-
-| Variable | Required? | Where to get it | What degrades without it |
+| Variable | Required? | Where to get it | Without it |
 |---|---|---|---|
-| `BITGET_QWEN_API_KEY` | Optional | [Bitget hackathon Qwen proxy](https://bitget-ai.gitbook.io/bitgetai_hackathons2) | Analysts fall back to local reasoning over the real fetched data; the UI and flow are identical |
+| `BITGET_QWEN_API_KEY` | Optional | [Bitget hackathon Qwen proxy](https://bitget-ai.gitbook.io/bitgetai_hackathons2) | Analysts reason over the fetched data locally; identical flow |
 | `DASHSCOPE_API_KEY` | Optional | Alibaba Cloud DashScope | Accepted as an alternative Qwen credential |
 
 ## Known limitations
 
-- Generation takes about two minutes end to end (six real LLM calls through the hackathon proxy plus live data fetches). The stage log covers the wait; shorter prompts or a faster model would cut it further.
-- Watchlist edits and the briefing archive are localStorage-scoped: no accounts, no sync across devices. Deliberate, since the demo must be usable without signup.
-- When a bitget-signal feed has no data for a domain, that analyst's fallback findings draw on curated seed content rather than live sources.
-- No order execution: this is a research desk, not a trading bot.
-- No multi-language support.
+- A full run takes about two minutes: six real LLM calls plus live data fetches. The stage log and ledger cover the wait.
+- Watchlist and archive live in localStorage: no accounts, no sync. Deliberate, since the demo must work without signup.
+- When a bitget-signal feed returns nothing, that analyst's fallback uses curated seed content rather than live sources.
+- No order execution: research desk, not a trading bot. No multi-language support.
 
 ## Licences
 
-- **Project code**: MIT License, see [LICENSE](LICENSE)
+- **Project code**: MIT, see [LICENSE](LICENSE)
 - **Qwen API**: Alibaba Cloud / Bitget hackathon proxy terms
-- **Bitget Agent SDK**: MIT (per [Bitget Agent Hub](https://github.com/Bitget-AI/agent_hub))
-- **lucide-react**: ISC
-- **simple-icons**: CC0-1.0 (brand icons)
-- **thinking-orbs, border-beam**: MIT
+- **Bitget Agent SDK**: MIT
+- **lucide-react**: ISC · **simple-icons**: CC0-1.0 · **thinking-orbs, border-beam**: MIT
 - **Next.js, React, Tailwind CSS**: MIT
 
 ---

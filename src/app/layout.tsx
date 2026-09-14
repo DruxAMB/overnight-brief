@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Overnight Brief: Your AI Research Desk for Tokenized Markets",
     description:
-      "Five specialist analysts, one ranked briefing, clear action items — for tokenized US stocks that trade while you sleep.",
+      "Five specialist analysts, one ranked briefing, clear action items for tokenized US stocks that trade while you sleep.",
     images: ["/og.png"],
   },
 };

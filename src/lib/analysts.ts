@@ -892,7 +892,7 @@ function reasonTechnicalFallback(
 
 // Human-readable pipeline stages surfaced to the UI as the analyst works.
 const ANALYST_STAGE_LABELS: Record<AnalystId, string> = {
-  macro: "Fetching macro indicators — DXY, VIX, yield curve, BTC/ETH",
+  macro: "Fetching macro indicators: DXY, VIX, yield curve, BTC/ETH",
   "market-intel": "Pulling funding rates, open interest, long/short ratios",
   news: "Scanning overnight headlines via bitget-signal",
   sentiment: "Reading Fear & Greed, taker flow, social volume",
@@ -944,12 +944,12 @@ export async function runAnalyst(
   } catch (err) {
     console.error(`[Analyst ${personaId}] data fetch error:`, err);
     realDataContext = "Market data temporarily unavailable for this domain.";
-    onProgress?.("Data feeds degraded — using fallback context");
+    onProgress?.("Data feeds degraded, using fallback context");
   }
 
   // If no Qwen key, use dynamic fallback with real data
   if (!hasQwenKey()) {
-    onProgress?.("No LLM key — reasoning over raw data locally");
+    onProgress?.("No LLM key, reasoning over raw data locally");
     return dynamicFallback(personaId, realDataContext, watchlist);
   }
 
@@ -981,7 +981,7 @@ export async function runAnalyst(
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Analyst failed";
     console.error(`[Analyst ${personaId}] LLM error:`, msg);
-    onProgress?.("LLM call failed — falling back to local reasoning");
+    onProgress?.("LLM call failed, falling back to local reasoning");
     // Fallback to dynamic analysis from real data
     return dynamicFallback(personaId, realDataContext, watchlist);
   }

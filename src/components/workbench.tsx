@@ -342,7 +342,7 @@ function AnalystPanel({
           {persona.id === "technical" && sparklines && watchlist && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">
-                Overnight price action — last 24h, hourly closes
+                Overnight price action: last 24h, hourly closes
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {watchlist
@@ -579,7 +579,7 @@ export function Workbench() {
     runStartRef.current = Date.now();
     setElapsed(0);
     setLastDuration(null);
-    setLedger([ledgerEntry(`Briefing run started — ${userSymbols.join(", ")}`)]);
+    setLedger([ledgerEntry(`Briefing run started: ${userSymbols.join(", ")}`)]);
 
     try {
       const res = await fetch("/api/briefing", {
@@ -653,13 +653,13 @@ export function Workbench() {
           setWatchlist(event.watchlist);
         }
         addLedger(
-          `Market data acquired — ${event.watchlist?.length ?? 0} symbols (${event.isLive ? "live" : "snapshot"})`,
+          `Market data acquired: ${event.watchlist?.length ?? 0} symbols (${event.isLive ? "live" : "snapshot"})`,
           event.isLive ? "success" : "info",
         );
         break;
       case "watchlist-sparklines":
         setSparklines(event.series);
-        addLedger(`24h price series loaded — ${Object.keys(event.series).length} symbols`, "muted");
+        addLedger(`24h price series loaded: ${Object.keys(event.series).length} symbols`, "muted");
         break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
@@ -678,10 +678,10 @@ export function Workbench() {
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "done" }));
         setAnalystFindings((prev) => ({ ...prev, [event.analystId]: event.finding }));
         findingsRef.current[event.analystId] = event.finding;
-        addLedger(`${analystName(event.analystId)} filed finding — conf ${event.finding.confidence}`, "success");
+        addLedger(`${analystName(event.analystId)} filed finding · conf ${event.finding.confidence}`, "success");
         break;
       case "analyst-error":
-        addLedger(`${analystName(event.analystId)} failed — ${event.error}`, "error");
+        addLedger(`${analystName(event.analystId)} failed: ${event.error}`, "error");
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "error" }));
         setAnalystFindings((prev) => ({
           ...prev,
@@ -709,7 +709,7 @@ export function Workbench() {
         setIsSynthesizing(false);
         if (runStartRef.current) setLastDuration(Date.now() - runStartRef.current);
         addLedger(
-          `Briefing ready — ${event.briefing.actionItems.length} actions, ${event.briefing.marketRegime.replace("-", " ")} regime`,
+          `Briefing ready: ${event.briefing.actionItems.length} actions, ${event.briefing.marketRegime.replace("-", " ")} regime`,
           "success",
         );
         setArchive(
@@ -726,7 +726,7 @@ export function Workbench() {
         setError(event.error);
         setRunState("error");
         setIsSynthesizing(false);
-        addLedger(`Error — ${event.error}`, "error");
+        addLedger(`Error: ${event.error}`, "error");
         break;
     }
   }

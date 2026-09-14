@@ -127,7 +127,7 @@ export function BriefingArchive({
                         <span className="font-mono text-muted-foreground">
                           {item.rank}. {item.symbol}
                         </span>{" "}
-                        — {item.action}
+                        · {item.action}
                       </p>
                     ))}
                   </div>
