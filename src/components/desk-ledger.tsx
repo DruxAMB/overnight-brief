@@ -48,7 +48,7 @@ export function DeskLedger({ entries }: { entries: LedgerEntry[] }) {
           findings, synthesis.
         </p>
       ) : (
-        <ol className="space-y-1.5 max-h-72 overflow-y-auto pr-1" aria-live="polite">
+        <ol className="themed-scrollbar space-y-1.5 max-h-72 overflow-y-auto pr-1" aria-live="polite">
           {[...entries].reverse().map((e) => (
             <li key={e.id} className="flex items-baseline gap-2 text-xs">
               <span className="font-mono text-muted-foreground/50 flex-shrink-0">

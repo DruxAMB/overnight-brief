@@ -252,3 +252,33 @@ h1, h2, h3, h4 {
 .marquee-mask:hover .marquee-track {
   animation-play-state: paused;
 }
+
+/* Reduced motion: marquees freeze instantly per the global rule above.
+   That leaves off-screen items unreachable, so under reduce we drop the
+   edge fade and let the strip scroll manually instead. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-mask {
+    overflow-x: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Themed thin scrollbar for dense scrollable surfaces (desk ledger). */
+.themed-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.themed-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.themed-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
