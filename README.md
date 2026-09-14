@@ -17,6 +17,7 @@ Tokenized US stocks trade around the clock, but humans sleep. Overnight moves, m
 - **Drill-down.** Click any analyst panel or action item for the full reasoning, signals, confidence score, and cited data sources. The technical panel also shows the raw 24h price action it reasoned over.
 - **Follow-up Q&A.** Ask a targeted question ("Should I adjust my rNVDA position?") and the same pipeline re-runs focused on that symbol.
 - **Editable watchlist and session archive.** Add or remove rToken symbols; every completed run is saved locally and can be restored into the workbench.
+- **Live market tape and desk ledger.** A scrolling ticker of watchlist rTokens plus BTC/ETH runs at the top of the page, and a timestamped activity ledger records every real pipeline event: data fetches, analyst stages, filed findings, synthesis. The finished briefing reports its own depth: analyst count, data sources, signals, actions, and run duration.
 
 ## Demo walkthrough
 

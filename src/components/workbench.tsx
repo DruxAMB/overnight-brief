@@ -32,6 +32,12 @@ import {
   saveToArchive,
   type ArchiveEntry,
 } from "@/components/briefing-archive";
+import {
+  DeskLedger,
+  ledgerEntry,
+  type LedgerEntry,
+  type LedgerTone,
+} from "@/components/desk-ledger";
 import { DEFAULT_WATCHLIST_SYMBOLS } from "@/lib/rtoken-catalog";
 import type {
   AnalystId,
@@ -50,6 +56,11 @@ const FOLLOW_UP_PROMPTS = [
   "Is rTSLA a buy or a wait right now?",
   "Which position should I trim first?",
 ];
+
+function formatElapsed(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 const EXAMPLE_PROMPTS = [
   "What happened while I slept?",
@@ -237,7 +248,40 @@ function AnalystPanel({
 
       {/* Summary line (always visible when done) */}
       {isDone && finding && !expanded && (
-        <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
+        <>
+          <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{finding.summary}</p>
+          {finding.signals.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {(() => {
+                const bull = finding.signals.filter((s) => s.direction === "bullish").length;
+                const bear = finding.signals.filter((s) => s.direction === "bearish").length;
+                const neutral = finding.signals.length - bull - bear;
+                return (
+                  <>
+                    {bull > 0 && (
+                      <span className="rounded bg-success/10 px-1.5 py-0.5 font-mono text-[10px] text-success">
+                        {bull} bullish
+                      </span>
+                    )}
+                    {bear > 0 && (
+                      <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] text-destructive">
+                        {bear} bearish
+                      </span>
+                    )}
+                    {neutral > 0 && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {neutral} neutral
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                conf {finding.confidence}
+              </span>
+            </div>
+          )}
+        </>
       )}
 
       {/* Thinking state: orb + live pipeline stage log */}
@@ -482,6 +526,10 @@ export function Workbench() {
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [userSymbols, setUserSymbols] = useState<string[]>(DEFAULT_WATCHLIST_SYMBOLS);
   const [archive, setArchive] = useState<ArchiveEntry[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [lastDuration, setLastDuration] = useState<number | null>(null);
+  const runStartRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const briefingRef = useRef<HTMLDivElement>(null);
   const promptForRun = useRef<string>("");
@@ -492,6 +540,15 @@ export function Workbench() {
     setUserSymbols(loadWatchlistSymbols());
     setArchive(loadArchive());
   }, []);
+
+  // Elapsed-time ticker while a run is in flight
+  useEffect(() => {
+    if (runState !== "running") return;
+    const id = setInterval(() => {
+      if (runStartRef.current) setElapsed(Date.now() - runStartRef.current);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [runState]);
 
   const runBriefing = useCallback(async (promptText: string) => {
     if (!promptText.trim() || runState === "running") return;
@@ -519,6 +576,10 @@ export function Workbench() {
     abortRef.current = controller;
     promptForRun.current = promptText;
     findingsRef.current = {};
+    runStartRef.current = Date.now();
+    setElapsed(0);
+    setLastDuration(null);
+    setLedger([ledgerEntry(`Briefing run started — ${userSymbols.join(", ")}`)]);
 
     try {
       const res = await fetch("/api/briefing", {
@@ -575,6 +636,14 @@ export function Workbench() {
     }
   }, [runState, userSymbols]);
 
+  function addLedger(text: string, tone: LedgerTone = "info") {
+    setLedger((prev) => [...prev.slice(-49), ledgerEntry(text, tone)]);
+  }
+
+  function analystName(id: AnalystId): string {
+    return ANALYST_PERSONAS.find((p) => p.id === id)?.name ?? id;
+  }
+
   function handleStreamEvent(event: BriefingStreamEvent) {
     switch (event.type) {
       case "market-data":
@@ -583,12 +652,18 @@ export function Workbench() {
         if (event.watchlist && event.watchlist.length > 0) {
           setWatchlist(event.watchlist);
         }
+        addLedger(
+          `Market data acquired — ${event.watchlist?.length ?? 0} symbols (${event.isLive ? "live" : "snapshot"})`,
+          event.isLive ? "success" : "info",
+        );
         break;
       case "watchlist-sparklines":
         setSparklines(event.series);
+        addLedger(`24h price series loaded — ${Object.keys(event.series).length} symbols`, "muted");
         break;
       case "analyst-start":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "thinking" }));
+        addLedger(`${analystName(event.analystId)} began analysis`);
         break;
       case "analyst-progress":
         setAnalystStages((prev) => ({
@@ -597,13 +672,16 @@ export function Workbench() {
             ? prev[event.analystId]
             : [...prev[event.analystId], event.stage],
         }));
+        addLedger(`${analystName(event.analystId)}: ${event.stage}`, "muted");
         break;
       case "analyst-done":
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "done" }));
         setAnalystFindings((prev) => ({ ...prev, [event.analystId]: event.finding }));
         findingsRef.current[event.analystId] = event.finding;
+        addLedger(`${analystName(event.analystId)} filed finding — conf ${event.finding.confidence}`, "success");
         break;
       case "analyst-error":
+        addLedger(`${analystName(event.analystId)} failed — ${event.error}`, "error");
         setAnalystStatuses((prev) => ({ ...prev, [event.analystId]: "error" }));
         setAnalystFindings((prev) => ({
           ...prev,
@@ -623,11 +701,17 @@ export function Workbench() {
         break;
       case "synthesis-start":
         setIsSynthesizing(true);
+        addLedger("Synthesizing briefing across findings");
         break;
       case "briefing-done":
         setBriefing(event.briefing);
         setRunState("done");
         setIsSynthesizing(false);
+        if (runStartRef.current) setLastDuration(Date.now() - runStartRef.current);
+        addLedger(
+          `Briefing ready — ${event.briefing.actionItems.length} actions, ${event.briefing.marketRegime.replace("-", " ")} regime`,
+          "success",
+        );
         setArchive(
           saveToArchive({
             id: `run-${Date.now()}`,
@@ -642,6 +726,7 @@ export function Workbench() {
         setError(event.error);
         setRunState("error");
         setIsSynthesizing(false);
+        addLedger(`Error — ${event.error}`, "error");
         break;
     }
   }
@@ -676,6 +761,19 @@ export function Workbench() {
   const isRunning = runState === "running";
   const hasResults = briefing !== null;
   const highlightSymbol = briefing?.actionItems[0]?.symbol;
+
+  // Depth stats for the finished briefing header
+  const completedFindings = Object.values(analystFindings).filter(
+    (f): f is AnalystFinding => f !== null && f.status !== "error",
+  );
+  const sourceCount = new Set(completedFindings.flatMap((f) => f.dataSources)).size;
+  const signalTotal = completedFindings.reduce((n, f) => n + f.signals.length, 0);
+
+  // Market breadth from the displayed watchlist
+  const upCount = watchlist.filter((w) => w.overnightChangePct > 0).length;
+  const downCount = watchlist.filter((w) => w.overnightChangePct < 0).length;
+  const flatCount = watchlist.length - upCount - downCount;
+  const breadthTilt = upCount > downCount ? "risk-on tilt" : downCount > upCount ? "risk-off tilt" : "mixed tape";
 
   // Progress counter: how many analysts are done
   const doneCount = Object.values(analystStatuses).filter((s) => s === "done" || s === "error").length;
@@ -712,7 +810,9 @@ export function Workbench() {
     }
     setError(null);
     setDataIsLive(null);
+    setLastDuration(null);
     setRunState("done");
+    addLedger("Briefing restored from archive", "muted");
     briefingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [runState]);
 
@@ -720,6 +820,7 @@ export function Workbench() {
     abortRef.current?.abort();
     setRunState("idle");
     setIsSynthesizing(false);
+    addLedger("Run cancelled", "error");
     // Reset analyst statuses to idle
     setAnalystStatuses(
       Object.fromEntries(ANALYST_PERSONAS.map((p) => [p.id, "idle"])) as Record<AnalystId, AnalystStatus>,
@@ -739,7 +840,9 @@ export function Workbench() {
     : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_300px]">
+      {/* Main column: question → deliberation → answer */}
+      <div className="flex min-w-0 flex-col gap-6">
       {/* Prompt input */}
       <Card>
         <form
@@ -813,6 +916,17 @@ export function Workbench() {
             )}
           </span>
         </div>
+        {/* Breadth strip: regime at a glance from the displayed watchlist */}
+        {watchlist.length > 0 && (
+          <p className="mb-3 font-mono text-xs text-muted-foreground" aria-label="Market breadth">
+            <span className="text-success">{upCount} up</span>
+            {" · "}
+            <span className="text-destructive">{downCount} down</span>
+            {flatCount > 0 && ` · ${flatCount} flat`}
+            {" · "}
+            {breadthTilt}
+          </p>
+        )}
         <Watchlist
           items={watchlist}
           highlightSymbol={highlightSymbol}
@@ -837,7 +951,7 @@ export function Workbench() {
               {progressLabel || "Starting..."}
             </span>
             <span className="font-mono text-muted-foreground">
-              {Math.round((doneCount / totalAnalysts) * 100)}%
+              {formatElapsed(elapsed)} · {Math.round((doneCount / totalAnalysts) * 100)}%
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -916,6 +1030,10 @@ export function Workbench() {
                     <Badge variant="info">{briefing.marketRegime}</Badge>
                   </div>
                 </div>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  {completedFindings.length} analysts · {sourceCount} data sources · {signalTotal} signals · {briefing.actionItems.length} actions
+                  {lastDuration !== null && ` · ${formatElapsed(lastDuration)}`}
+                </p>
                 <p className="text-base text-foreground leading-relaxed">{briefing.executiveSummary}</p>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-3">Ranked Action Items</h3>
@@ -986,9 +1104,6 @@ export function Workbench() {
         </Card>
       )}
 
-      {/* Briefing archive */}
-      <BriefingArchive entries={archive} onRestore={handleRestore} disabled={isRunning} />
-
       {/* Analyst panels */}
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Specialist Analysts</h2>
@@ -1017,6 +1132,13 @@ export function Workbench() {
             ? "Live market data from Bitget. Analysis by Qwen 3.6 Plus."
             : "Bitget API unreachable, using curated seed data for demo reliability."}
       </p>
+      </div>
+
+      {/* Side rail: audit trail + archived runs (stacks below on mobile) */}
+      <aside className="flex flex-col gap-6">
+        <DeskLedger entries={ledger} />
+        <BriefingArchive entries={archive} onRestore={handleRestore} disabled={isRunning} />
+      </aside>
     </div>
   );
 }

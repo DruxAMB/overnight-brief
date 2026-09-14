@@ -82,7 +82,7 @@ export function BriefingArchive({
               <div className="flex items-center gap-2 px-3 py-2">
                 <button
                   onClick={() => setExpandedId(expanded ? null : entry.id)}
-                  className="flex flex-1 items-center gap-2 text-left min-w-0"
+                  className="flex flex-1 items-center gap-2 text-left min-w-0 overflow-hidden"
                   aria-expanded={expanded}
                   aria-label={`Briefing from ${formatTime(entry.savedAt)}: click to ${expanded ? "collapse" : "expand"}`}
                 >
@@ -94,7 +94,7 @@ export function BriefingArchive({
                   <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
                     {formatTime(entry.savedAt)}
                   </span>
-                  <Badge variant="info" className="flex-shrink-0">
+                  <Badge variant="info" className="max-w-20 truncate">
                     {entry.briefing.marketRegime}
                   </Badge>
                   <span className="truncate text-xs text-foreground">

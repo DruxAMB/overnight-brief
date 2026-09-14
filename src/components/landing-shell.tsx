@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Moon, ArrowRight, ArrowLeft, TrendingUp, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
+import { TickerTape } from "@/components/ticker-tape";
 
 // ─── Tech marquee items: actual project logos (inline SVG) ────────
 const TECH_MARQUEE_ITEMS = [
@@ -205,6 +206,9 @@ export function LandingShell({
           )}
         </div>
       </header>
+
+      {/* Ambient market tape: live prices visible before any click */}
+      <TickerTape />
 
       {/* Hero: hidden when app is active */}
       <div
