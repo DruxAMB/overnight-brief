@@ -2,7 +2,7 @@
 
 > Wake up to a ranked briefing on what happened in tokenized US-stock markets while you slept. Five specialist AI analysts, one synthesis, three action items.
 
-[**▶ Live demo**](https://overnight-brief.druxamb.dev)
+[**▶ Live demo**](https://overnight-brief.druxamb.dev) · [**Demo video**](https://youtu.be/mAIxLUazUIc)
 
 ![The workbench mid-run: live watchlist with 24h sparklines, market breadth strip, and the timestamped desk-activity ledger](public/screenshot.png)
 
